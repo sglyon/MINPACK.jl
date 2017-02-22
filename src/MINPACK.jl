@@ -1,5 +1,9 @@
 module MINPACK
 
+using Distances
+
+using NLsolve: SolverState, SolverTrace
+
 const cminpack = joinpath(dirname(dirname(@__FILE__)), "libcminpack.dylib")
 
 # Just a testing function. Will delete soon...
@@ -10,14 +14,40 @@ function f!(x, fvec=similar(x))
 end
 
 
-type AlgoData
+type AlgoTrace
     n_calls::Int
     show_trace::Bool
+    x_old::Vector{Float64}
+    trace::Vector{SolverState{Float64}}
 
-    AlgoData(verbose=false) = new(0, verbose)
+    function AlgoTrace(x_init::Vector{Float64}, verbose::Bool=false)
+        x_old = verbose ? copy(x_init) : Array{Float64}(0)
+        states = Array{SolverState{Float64}}(0)
+        new(0, verbose, x_old, states)
+    end
 end
 
-Base.unsafe_convert(::Type{Ptr{Void}}, o::AlgoData) = o
+Base.unsafe_convert(::Type{Ptr{Void}}, o::AlgoTrace) = o
+
+function Base.show(io::IO, trace::AlgoTrace)
+    @printf io "Iter     f(x) inf-norm    Step 2-norm \n"
+    @printf io "------   --------------   --------------\n"
+    for state in trace.trace
+        show(io, state)
+    end
+end
+
+function Base.push!(trace::AlgoTrace, x::Vector{Float64}, fvec::Vector{Float64})
+    trace.n_calls += 1
+    if trace.show_trace
+        x_step = sqeuclidean(trace.x_old, x)
+        f_norm = maximum(abs, fvec)
+        ss = SolverState(trace.n_calls, f_norm, x_step, Dict())
+        show(ss)
+        push!(trace.trace, ss)
+        copy!(trace.x_old, x)
+    end
+end
 
 immutable SolverResults
     algo::String
@@ -26,7 +56,7 @@ immutable SolverResults
     f::Vector{Float64}
     return_code::Int
     msg::String
-    obj::AlgoData
+    trace::AlgoTrace
 end
 
 # NOTE: this method was adapted from NLsolve.jl
@@ -45,11 +75,7 @@ function Base.show(io::IO, s::SolverResults)
     # @printf io " * Jacobian Calls (df/dx): %d" r.g_calls
 end
 
-immutable ConvergenceError <: Exception
-    msg::String
-    return_code::Int
-end
-
+## Wrapping hybrd1 routine
 const _hybrd1_func_ref = Array(Function)
 function _hybrd1_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
                              _fvec::Ptr{Cdouble}, iflag::Cint)
@@ -59,25 +85,23 @@ function _hybrd1_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
         print(fvec)
         return Cint(0)
     end
-    f!(x, fvec)
-
-    obj = unsafe_pointer_to_objref(_p)::AlgoData
-    obj.n_calls += 1
-    if obj.show_trace
-        println("it: $(obj.n_calls)\terr: $(norm(fvec, Inf))")
-    end
-
     _hybrd1_func_ref[](x, fvec)
+
+    trace = unsafe_pointer_to_objref(_p)::AlgoTrace
+    push!(trace, x, fvec)
+
     Cint(0)
 end
 const _hybrd1_cfunc = cfunction(_hybrd1_func_wrapper, Cint, (Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint))
 
 const _hybrd1_messages = Dict{Int,String}(
-    1 => "MINPACK says algorithm estimates that the relative error between x and the solution is at most tol",
-    2 => "MINPACK says maximum iterations has been exceeded",
-    3 => "MINPACK says tol is too small, no further improvement in x is possible",
-    4 => "MINPACK says iteration is not making good progress",
-    -1 => "MINPACK says user terminated iterations with code "
+    0 => "improper input parameters",
+    1 => string("algorithm estimates that the relative error between x and the ",
+                "solution is at most tol"),
+    2 => "maximum iterations has been exceeded",
+    3 => "tol is too small, no further improvement in x is possible",
+    4 => "iteration is not making good progress",
+    -1 => "user terminated iterations with code "
 )
 
 function hybrd1(f!::Function, x0::Vector{Float64}; tol::Float64=1e-8,
@@ -88,24 +112,29 @@ function hybrd1(f!::Function, x0::Vector{Float64}; tol::Float64=1e-8,
     lwa = ceil(Int, (n*(3*n+13))/2)
     wa = ones(lwa)
     _hybrd1_func_ref[] = f!
-    obj = AlgoData(show_trace)
+    trace = AlgoTrace(x0, show_trace)
+
+    if show_trace
+        show(trace)
+    end
 
     return_code = ccall(
         (:hybrd1, cminpack),
         Cint,
         (Ptr{Void}, Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble, Ptr{Cdouble}, Cint),
-        _hybrd1_cfunc, pointer_from_objref(obj), n, x, fvec, tol, wa, lwa
+        _hybrd1_cfunc, pointer_from_objref(trace), n, x, fvec, tol, wa, lwa
     )
 
     msg = _hybrd1_messages[max(-1, return_code)]
     if return_code < 0
         msg = msg * string(return_code)
-        throw(ConvergenceError(msg, return_code))
     end
 
-    SolverResults("Modified Powell", x0, x, fvec, return_code, msg, obj)
+    SolverResults("Modified Powell", x0, x, fvec, return_code, msg, trace)
 end
 
+
+## Wrapping lmdif1 routine
 const _lmdif1_func_ref = Array(Function)
 function _lmdif1_func_wrapper(_p::Ptr{Void}, m::Cint, n::Cint, _x::Ptr{Cdouble},
                              _fvec::Ptr{Cdouble}, iflag::Cint)
@@ -115,18 +144,31 @@ function _lmdif1_func_wrapper(_p::Ptr{Void}, m::Cint, n::Cint, _x::Ptr{Cdouble},
         print(fvec)
         return Cint(0)
     end
-    f!(x, fvec)
-
-    obj = unsafe_pointer_to_objref(_p)::AlgoData
-    obj.n_calls += 1
-    if obj.show_trace
-        println("it: $(obj.n_calls)\terr: $(norm(fvec, Inf))")
-    end
-
     _lmdif1_func_ref[](x, fvec)
+
+    trace = unsafe_pointer_to_objref(_p)::AlgoTrace
+    push!(trace, x, fvec)
+
     Cint(0)
 end
 const _lmdif1_cfunc = cfunction(_lmdif1_func_wrapper, Cint, (Ptr{Void}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint))
+
+
+const _lmdif1_messages = Dict{Int,String}(
+    0 => "improper input parameters",
+    1 => string("algorithm estimates that the relative error between x and the ",
+                "solution is at most tol"),
+    2 => string("algorithm estimates that the relative error between x and the ",
+                "solution is at most tol")
+    3 => string("algorithm estimates that the relative error in the sum of ",
+                "squares and the relative error between x and the solution is ",
+                "at most tol"),
+    4 =>  "fvec is orthogonal to the columns of the jacobian to machine precision.",
+    5 => "maximum iterations has been exceeded",
+    6 => "tol is too small, no further reduction of sum of squares is possible",
+    7 => "tol is too small, no further improvement in x is possible",
+    -1 => "user terminated iterations with code "
+)
 
 # NOTE: default doesn't always hold
 function lmdif1(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float64=1e-8,
@@ -143,49 +185,21 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float
     iwa = Array{Int}(n)
     wa = ones(lwa)
     _lmdif1_func_ref[] = f!
-    obj = AlgoData(show_trace)
+    trace = AlgoTrace(x0, show_trace)
 
     return_code = ccall(
         (:lmdif1,cminpack),
         Cint,
         (Ptr{Void}, Ptr{Void}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble, Ptr{Cint}, Ptr{Cdouble}, Cint),
-        _lmdif1_cfunc, pointer_from_objref(obj), m, n, x, fvec, tol, iwa, wa, lwa
+        _lmdif1_cfunc, pointer_from_objref(trace), m, n, x, fvec, tol, iwa, wa, lwa
     )
 
-    # handle return code
-    if return_code == 0
-        msg = "MINPACK says Improper input parameters"
-        throw(ArgumentError(msg))
-    elseif return_code == 1
-        msg = string("MINPACK says algorithm estimates that the relative error",
-                     " in the sum of squares is at most tol")
-    elseif return_code == 2
-        msg = string("MINPACK says algorithm estimates that the relative error",
-                     " between x and the solution is at most tol")
-    elseif return_code == 3
-        string("MINPACK says algorithm estimates that the relative error in the",
-               " sum of squares and the relative error between x and the",
-               " solution is at most tol")
-    elseif return_code == 4
-        msg = string("MINPACK says fvec is orthogonal to the columns of ",
-                     "the jacobian to machine precision.")
-        warn(msg)
-    elseif return_code == 5
-        msg = "MINPACK says maximum iterations has been exceeded"
-        throw(ConvergenceError(msg, return_code))
-    elseif return_code == 6
-        msg = string("MINPACK says tol is too small, no further reduction of ",
-                     "sum of squares is possible")
-        warn(msg)
-    elseif return_code == 7
-        msg = "MINPACK says tol is too small, no further improvement in x is possible"
-        warn(msg)
-    elseif return_code < 0
-        msg = "MINPACK says user terminated iterations with code $(return_code)"
-        throw(ConvergenceError(msg, return_code))
+    msg = _lmdif1_messages[max(-1, return_code)]
+    if return_code < 0
+        msg = msg * string(return_code)
     end
 
-    SolverResults("Levenberg-Marquardt", x0, x, fvec, return_code, msg, obj)
+    SolverResults("Levenberg-Marquardt", x0, x, fvec, return_code, msg, trace)
 end
 
 end  # module
