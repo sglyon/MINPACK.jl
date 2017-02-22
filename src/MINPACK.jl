@@ -27,15 +27,17 @@ end
 
 
 type AlgoTrace
-    n_calls::Int
+    f_calls::Int
+    g_calls::Int
     show_trace::Bool
     x_old::Vector{Float64}
     trace::Vector{SolverState{Float64}}
+    prev_iflag::Int  # allows us to track when we stop computing deriv
 
     function AlgoTrace(x_init::Vector{Float64}, verbose::Bool=false)
         x_old = verbose ? copy(x_init) : Array{Float64}(0)
         states = Array{SolverState{Float64}}(0)
-        new(0, verbose, x_old, states)
+        new(0, 0, verbose, x_old, states, 1)
     end
 end
 
@@ -49,16 +51,25 @@ function Base.show(io::IO, trace::AlgoTrace)
     end
 end
 
-function Base.push!(trace::AlgoTrace, x::Vector{Float64}, fvec::Vector{Float64})
-    trace.n_calls += 1
-    if trace.show_trace
-        x_step = sqeuclidean(trace.x_old, x)
-        f_norm = maximum(abs, fvec)
-        ss = SolverState(trace.n_calls, f_norm, x_step, Dict())
-        show(ss)
-        push!(trace.trace, ss)
-        copy!(trace.x_old, x)
+function Base.push!(trace::AlgoTrace, x::Vector{Float64}, fvec::Vector{Float64},
+                    iflag::Cint)
+    if iflag == 2  # computing derivative
+        if trace.prev_iflag == 1
+            # only increment if just starting to compute deriv
+            trace.g_calls += 1
+        end
+    elseif iflag == 1  # computing function
+        trace.f_calls += 1
+        if trace.show_trace
+            x_step = sqeuclidean(trace.x_old, x)
+            f_norm = maximum(abs, fvec)
+            ss = SolverState(trace.f_calls, f_norm, x_step, Dict())
+            show(ss)
+            push!(trace.trace, ss)
+            copy!(trace.x_old, x)
+        end
     end
+    trace.prev_iflag = iflag
 end
 
 immutable SolverResults
@@ -67,6 +78,7 @@ immutable SolverResults
     x::Vector{Float64}
     f::Vector{Float64}
     return_code::Int
+    converged::Bool
     msg::String
     trace::AlgoTrace
 end
@@ -79,12 +91,10 @@ function Base.show(io::IO, s::SolverResults)
     @printf io " * Zero: %s\n" string(s.x)
     @printf io " * Inf-norm of residuals: %f\n" norm(s.f, Inf)
     # @printf io " * Iterations: %d\n" r.iterations
-    @printf io " * Convergence: %s\n" s.return_code==1
+    @printf io " * Convergence: %s\n" s.converged
     @printf io " * Message: %s\n" s.msg
-    # @printf io "   * |x - x'| < %.1e: %s\n" r.xtol r.x_converged
-    # @printf io "   * |f(x)| < %.1e: %s\n" r.ftol r.f_converged
-    @printf io " * Function Calls: %d\n" s.obj.n_calls
-    # @printf io " * Jacobian Calls (df/dx): %d" r.g_calls
+    @printf io " * Function Calls: %d\n" s.trace.f_calls
+    @printf io " * Jacobian Calls (df/dx): %d" s.trace.g_calls
 end
 
 ## Wrapping hybrd1 routine
@@ -100,13 +110,13 @@ function _hybrd1_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
     _hybrd1_func_ref[](x, fvec)
 
     trace = unsafe_pointer_to_objref(_p)::AlgoTrace
-    push!(trace, x, fvec)
+    push!(trace, x, fvec, iflag)
 
     Cint(0)
 end
 const _hybrd1_cfunc = cfunction(_hybrd1_func_wrapper, Cint, (Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint))
 
-const _hybrd1_messages = Dict{Int,String}(
+const _hybr_messages = Dict{Int,String}(
     0 => "improper input parameters",
     1 => string("algorithm estimates that the relative error between x and the ",
                 "solution is at most tol"),
@@ -137,14 +147,15 @@ function hybrd1(f!::Function, x0::Vector{Float64}; tol::Float64=1e-8,
         _hybrd1_cfunc, pointer_from_objref(trace), n, x, fvec, tol, wa, lwa
     )
 
-    msg = _hybrd1_messages[max(-1, return_code)]
+    msg = _hybr_messages[max(-1, return_code)]
     if return_code < 0
         msg = msg * string(return_code)
     end
 
-    SolverResults("Modified Powell", x0, x, fvec, return_code, msg, trace)
-end
+    coverged = return_code == 1
 
+    SolverResults("Modified Powell", x0, x, fvec, return_code, coverged, msg, trace)
+end
 
 ## Wrapping lmdif1 routine
 const _lmdif1_func_ref = Ref{Function}()
@@ -159,7 +170,7 @@ function _lmdif1_func_wrapper(_p::Ptr{Void}, m::Cint, n::Cint, _x::Ptr{Cdouble},
     _lmdif1_func_ref[](x, fvec)
 
     trace = unsafe_pointer_to_objref(_p)::AlgoTrace
-    push!(trace, x, fvec)
+    push!(trace, x, fvec, iflag)
 
     Cint(0)
 end
@@ -210,8 +221,9 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float
     if return_code < 0
         msg = msg * string(return_code)
     end
+    converged = return_code in [1, 2, 3]
 
-    SolverResults("Levenberg-Marquardt", x0, x, fvec, return_code, msg, trace)
+    SolverResults("Levenberg-Marquardt", x0, x, fvec, return_code, converged, msg, trace)
 end
 
 end  # module
