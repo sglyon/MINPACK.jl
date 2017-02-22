@@ -159,7 +159,7 @@ const _lmdif1_messages = Dict{Int,String}(
     1 => string("algorithm estimates that the relative error between x and the ",
                 "solution is at most tol"),
     2 => string("algorithm estimates that the relative error between x and the ",
-                "solution is at most tol")
+                "solution is at most tol"),
     3 => string("algorithm estimates that the relative error in the sum of ",
                 "squares and the relative error between x and the solution is ",
                 "at most tol"),
