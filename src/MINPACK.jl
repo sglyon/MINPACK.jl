@@ -76,7 +76,7 @@ function Base.show(io::IO, s::SolverResults)
 end
 
 ## Wrapping hybrd1 routine
-const _hybrd1_func_ref = Array(Function)
+const _hybrd1_func_ref = Ref{Function}()
 function _hybrd1_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
                              _fvec::Ptr{Cdouble}, iflag::Cint)
     fvec = unsafe_wrap(Array, _fvec, n)
@@ -135,7 +135,7 @@ end
 
 
 ## Wrapping lmdif1 routine
-const _lmdif1_func_ref = Array(Function)
+const _lmdif1_func_ref = Ref{Function}()
 function _lmdif1_func_wrapper(_p::Ptr{Void}, m::Cint, n::Cint, _x::Ptr{Cdouble},
                              _fvec::Ptr{Cdouble}, iflag::Cint)
     fvec = unsafe_wrap(Array, _fvec, m)
