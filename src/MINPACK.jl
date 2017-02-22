@@ -3,8 +3,20 @@ module MINPACK
 using Distances
 
 using NLsolve: SolverState, SolverTrace
+export fsolve
 
 const cminpack = joinpath(dirname(dirname(@__FILE__)), "libcminpack.dylib")
+
+function fsolve(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float64=1e-8,
+                show_trace::Bool=false, method::Symbol=:hybr)
+    if method == :hybr
+        return hybrd1(f!, x0, tol=tol, show_trace=show_trace)
+    elseif method == :lm
+        return lmdif1(f!, x0, m, tol=tol, show_trace=show_trace)
+    else
+        error("unknown method $(method)")
+    end
+end
 
 # Just a testing function. Will delete soon...
 function f!(x, fvec=similar(x))
