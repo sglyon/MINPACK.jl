@@ -4,7 +4,9 @@ using Distances
 
 export fsolve
 
-const cminpack = joinpath(dirname(dirname(@__FILE__)), "libcminpack.dylib")
+const cminpack = joinpath(
+    dirname(dirname(@__FILE__)), "deps", "cminpack-master", "libcminpack.dylib"
+)
 
 # Just a testing function. Will delete soon...
 function f!(x, fvec=similar(x))

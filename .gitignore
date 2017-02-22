@@ -1,3 +1,7 @@
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
+deps/cminpack-master
+*.dylib
+*.so
+*.zip
