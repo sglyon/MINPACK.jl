@@ -183,7 +183,7 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float
     fvec = Array{Float64}(m)
     lwa = m*n+5*n+m
     iwa = Array{Int}(n)
-    wa = ones(lwa)
+    wa = Array{Float64}(lwa)
     _lmdif1_func_ref[] = f!
     trace = AlgoTrace(x0, show_trace)
 
