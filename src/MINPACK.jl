@@ -2,7 +2,6 @@ module MINPACK
 
 using Distances
 
-using NLsolve: SolverState, SolverTrace
 export fsolve
 
 const cminpack = joinpath(dirname(dirname(@__FILE__)), "libcminpack.dylib")
@@ -14,26 +13,46 @@ function f!(x, fvec=similar(x))
     fvec
 end
 
+immutable IterationState
+    iteration::Int
+    fnorm::Float64
+    xnorm::Float64
+    step_time::Float64
+end
+
+function Base.show(io::IO, t::IterationState)
+    @printf io "%6d   %14e   %14e   %14e\n" t.iteration t.fnorm t.xnorm t.step_time
+end
+
 type AlgoTrace
     f_calls::Int
     g_calls::Int
     show_trace::Bool
+    tracing::Bool
     x_old::Vector{Float64}
-    trace::Vector{SolverState{Float64}}
+    trace::Vector{IterationState}
     prev_iflag::Int  # allows us to track when we stop computing deriv
+    start_time::Float64
+    last_feval_time::Float64
+    tot_time::Float64
+    io::IO
 
-    function AlgoTrace(x_init::Vector{Float64}, verbose::Bool=false)
-        x_old = verbose ? copy(x_init) : Array{Float64}(0)
-        states = Array{SolverState{Float64}}(0)
-        new(0, 0, verbose, x_old, states, 1)
+    function AlgoTrace(x_init::Vector{Float64}, verbose::Bool=false, tracing::Bool=false,
+                       io::IO=STDOUT)
+        if verbose
+            tracing = true
+        end
+        x_old = tracing ? copy(x_init) : Array{Float64}(0)
+        states = Array{IterationState}(0)
+        new(0, 0, verbose, tracing, x_old, states, 1, time(), time(), NaN, io)
     end
 end
 
 Base.unsafe_convert(::Type{Ptr{Void}}, o::AlgoTrace) = o
 
 function Base.show(io::IO, trace::AlgoTrace)
-    @printf io "Iter     f(x) inf-norm    Step 2-norm \n"
-    @printf io "------   --------------   --------------\n"
+    @printf io "Iter     f(x) inf-norm    Step 2-norm      Step time\n"
+    @printf io "------   --------------   --------------   --------------\n"
     for state in trace.trace
         show(io, state)
     end
@@ -41,23 +60,24 @@ end
 
 function Base.push!(trace::AlgoTrace, x::Vector{Float64}, fvec::Vector{Float64},
                     iflag::Cint)
-    if iflag == 2  # computing derivative
-        if trace.prev_iflag == 1
-            # only increment if just starting to compute deriv
-            trace.g_calls += 1
-        end
-    elseif iflag == 1  # computing function
-        trace.f_calls += 1
-        if trace.show_trace
+    if trace.tracing
+        if iflag == 2  # computing derivative
+            if trace.prev_iflag == 1
+                # only increment if just starting to compute deriv
+                trace.g_calls += 1
+            end
+        elseif iflag == 1  # computing function
+            trace.f_calls += 1
             x_step = sqeuclidean(trace.x_old, x)
             f_norm = maximum(abs, fvec)
-            ss = SolverState(trace.f_calls, f_norm, x_step, Dict())
-            show(ss)
+            elapsed = time() - trace.last_feval_time
+            ss = IterationState(trace.f_calls, f_norm, x_step, elapsed)
+            trace.show_trace && show(trace.io, ss)
             push!(trace.trace, ss)
             copy!(trace.x_old, x)
         end
+        trace.prev_iflag = iflag
     end
-    trace.prev_iflag = iflag
 end
 
 immutable SolverResults
@@ -78,9 +98,9 @@ function Base.show(io::IO, s::SolverResults)
     @printf io " * Starting Point: %s\n" string(s.initial_x)
     @printf io " * Zero: %s\n" string(s.x)
     @printf io " * Inf-norm of residuals: %f\n" norm(s.f, Inf)
-    # @printf io " * Iterations: %d\n" r.iterations
     @printf io " * Convergence: %s\n" s.converged
     @printf io " * Message: %s\n" s.msg
+    @printf io " * Total time: %f seconds\n" s.trace.tot_time
     @printf io " * Function Calls: %d\n" s.trace.f_calls
     @printf io " * Jacobian Calls (df/dx): %d" s.trace.g_calls
 end
@@ -114,18 +134,18 @@ const _hybr_messages = Dict{Int,String}(
     -1 => "user terminated iterations with code "
 )
 
-function hybrd1(f!::Function, x0::Vector{Float64}; tol::Float64=1e-8,
-                show_trace::Bool=false)
+function hybrd1(f!::Function, x0::Vector{Float64}, tol::Float64,
+                show_trace::Bool, tracing::Bool, io::IO)
     x = copy(x0)
     fvec = similar(x)
     n = length(x)
     lwa = ceil(Int, (n*(3*n+13))/2)
     wa = ones(lwa)
     _hybrd1_func_ref[] = f!
-    trace = AlgoTrace(x0, show_trace)
+    trace = AlgoTrace(x0, show_trace, tracing, io)
 
     if show_trace
-        show(trace)
+        show(io, trace)
     end
 
     return_code = ccall(
@@ -141,6 +161,7 @@ function hybrd1(f!::Function, x0::Vector{Float64}; tol::Float64=1e-8,
     end
 
     coverged = return_code == 1
+    trace.tot_time = time() - trace.start_time
 
     SolverResults("Modified Powell", x0, x, fvec, return_code, coverged, msg, trace)
 end
@@ -182,8 +203,8 @@ const _lmdif1_messages = Dict{Int,String}(
 )
 
 # NOTE: default doesn't always hold
-function lmdif1(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float64=1e-8,
-                show_trace::Bool=false)
+function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
+                show_trace::Bool, tracing::Bool, io::IO)
     x = copy(x0)
     n = length(x)
     if n > m
@@ -196,7 +217,7 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float
     iwa = Array{Int}(n)
     wa = Array{Float64}(lwa)
     _lmdif1_func_ref[] = f!
-    trace = AlgoTrace(x0, show_trace)
+    trace = AlgoTrace(x0, show_trace, tracing, io)
 
     return_code = ccall(
         (:lmdif1,cminpack),
@@ -210,16 +231,18 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float
         msg = msg * string(return_code)
     end
     converged = return_code in [1, 2, 3]
+    trace.tot_time = time() - trace.start_time
 
     SolverResults("Levenberg-Marquardt", x0, x, fvec, return_code, converged, msg, trace)
 end
 
 function fsolve(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float64=1e-8,
-                show_trace::Bool=false, method::Symbol=:hybr)
+                show_trace::Bool=false, tracing::Bool=false, method::Symbol=:hybr,
+                io::IO=STDOUT)
     if method == :hybr
-        return hybrd1(f!, x0, tol=tol, show_trace=show_trace)
+        return hybrd1(f!, x0, tol, show_trace, tracing, io)
     elseif method == :lm
-        return lmdif1(f!, x0, m, tol=tol, show_trace=show_trace)
+        return lmdif1(f!, x0, m, tol, show_trace, tracing, io)
     else
         error("unknown method $(method)")
     end
