@@ -4,8 +4,10 @@ using Distances
 
 export fsolve
 
+const _dl_ext = @static is_apple() ? "dylib" : "so"
+
 const cminpack = joinpath(
-    dirname(dirname(@__FILE__)), "deps", "cminpack-master", "libcminpack.dylib"
+    dirname(dirname(@__FILE__)), "deps", "cminpack-master", "libcminpack.$(_dl_ext)"
 )
 
 # Just a testing function. Will delete soon...

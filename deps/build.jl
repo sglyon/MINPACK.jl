@@ -1,8 +1,13 @@
 url = "https://github.com/devernay/cminpack/archive/master.zip"
 
-@static if is_apple()
-    download(url, "cminpack.zip")
-    run(`unzip -a -q cminpzck.zip`)
-    run(`cd cminpack-master && cmake -D BUILD_SHARED_LIBS=ON . -Wno-dev && make`)
-    rm("cminpack.zip")
+@static if is_unix()
+    cd(joinpath(dirname(@__FILE__))) do
+        download(url, "cminpack.zip")
+        run(`unzip -a -q -u cminpack.zip`)
+        rm("cminpack.zip")
+        cd("cminpack-master") do
+            run(`cmake -D BUILD_SHARED_LIBS=ON . -Wno-dev`)
+            run(`make`)
+        end
+    end
 end
