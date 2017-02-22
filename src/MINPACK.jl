@@ -7,24 +7,12 @@ export fsolve
 
 const cminpack = joinpath(dirname(dirname(@__FILE__)), "libcminpack.dylib")
 
-function fsolve(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float64=1e-8,
-                show_trace::Bool=false, method::Symbol=:hybr)
-    if method == :hybr
-        return hybrd1(f!, x0, tol=tol, show_trace=show_trace)
-    elseif method == :lm
-        return lmdif1(f!, x0, m, tol=tol, show_trace=show_trace)
-    else
-        error("unknown method $(method)")
-    end
-end
-
 # Just a testing function. Will delete soon...
 function f!(x, fvec=similar(x))
     fvec[1] = (x[1]+3)*(x[2]^3-7)+18
     fvec[2] = sin(x[2]*exp(x[1])-1)
     fvec
 end
-
 
 type AlgoTrace
     f_calls::Int
@@ -224,6 +212,17 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float
     converged = return_code in [1, 2, 3]
 
     SolverResults("Levenberg-Marquardt", x0, x, fvec, return_code, converged, msg, trace)
+end
+
+function fsolve(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float64=1e-8,
+                show_trace::Bool=false, method::Symbol=:hybr)
+    if method == :hybr
+        return hybrd1(f!, x0, tol=tol, show_trace=show_trace)
+    elseif method == :lm
+        return lmdif1(f!, x0, m, tol=tol, show_trace=show_trace)
+    else
+        error("unknown method $(method)")
+    end
 end
 
 end  # module
