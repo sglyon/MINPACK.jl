@@ -25,7 +25,7 @@ immutable IterationState
 end
 
 function Base.show(io::IO, t::IterationState)
-    @printf io "%6d   %14e   %14e   %14e\n" t.iteration t.fnorm t.xnorm t.step_time
+    @printf io "%6d   %14e   %14e   %14f\n" t.iteration t.fnorm t.xnorm t.step_time
 end
 
 type AlgoTrace
@@ -74,7 +74,9 @@ function Base.push!(trace::AlgoTrace, x::Vector{Float64}, fvec::Vector{Float64},
             trace.f_calls += 1
             x_step = sqeuclidean(trace.x_old, x)
             f_norm = maximum(abs, fvec)
-            elapsed = time() - trace.last_feval_time
+            now = time()
+            elapsed = now - trace.last_feval_time
+            trace.last_feval_time = now
             ss = IterationState(trace.f_calls, f_norm, x_step, elapsed)
             trace.show_trace && show(trace.io, ss)
             push!(trace.trace, ss)
@@ -222,6 +224,10 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
     wa = Array{Float64}(lwa)
     _lmdif1_func_ref[] = f!
     trace = AlgoTrace(x0, show_trace, tracing, io)
+
+    if show_trace
+        show(io, trace)
+    end
 
     return_code = ccall(
         (:lmdif1,cminpack),
