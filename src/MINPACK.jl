@@ -33,6 +33,7 @@ type AlgoTrace
     g_calls::Int
     show_trace::Bool
     tracing::Bool
+    maxit::Int
     x_old::Vector{Float64}
     trace::Vector{IterationState}
     prev_iflag::Int  # allows us to track when we stop computing deriv
@@ -42,13 +43,13 @@ type AlgoTrace
     io::IO
 
     function AlgoTrace(x_init::Vector{Float64}, verbose::Bool=false, tracing::Bool=false,
-                       io::IO=STDOUT)
+                       maxit::Int=typemax(Int), io::IO=STDOUT)
         if verbose
             tracing = true
         end
         x_old = tracing ? copy(x_init) : Array{Float64}(0)
         states = Array{IterationState}(0)
-        new(0, 0, verbose, tracing, x_old, states, 1, time(), time(), NaN, io)
+        new(0, 0, verbose, tracing, maxit, x_old, states, 1, time(), time(), NaN, io)
     end
 end
 
@@ -126,7 +127,7 @@ function _hybrd1_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
     trace = unsafe_pointer_to_objref(_p)::AlgoTrace
     push!(trace, x, fvec, iflag)
 
-    Cint(0)
+    trace.f_calls > trace.maxit ? Cint(-1) : Cint(0)
 end
 const _hybrd1_cfunc = cfunction(_hybrd1_func_wrapper, Cint, (Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint))
 
@@ -137,18 +138,19 @@ const _hybr_messages = Dict{Int,String}(
     2 => "maximum iterations has been exceeded",
     3 => "tol is too small, no further improvement in x is possible",
     4 => "iteration is not making good progress",
-    -1 => "user terminated iterations with code "
+    -1 => "exceeded user imposed number of iterations",
+    -2 => "user terminated iterations with code "
 )
 
 function hybrd1(f!::Function, x0::Vector{Float64}, tol::Float64,
-                show_trace::Bool, tracing::Bool, io::IO)
+                show_trace::Bool, tracing::Bool, maxit::Int, io::IO)
     x = copy(x0)
     fvec = similar(x)
     n = length(x)
     lwa = ceil(Int, (n*(3*n+13))/2)
     wa = ones(lwa)
     _hybrd1_func_ref[] = f!
-    trace = AlgoTrace(x0, show_trace, tracing, io)
+    trace = AlgoTrace(x0, show_trace, tracing, maxit, io)
 
     if show_trace
         show(io, trace)
@@ -161,8 +163,8 @@ function hybrd1(f!::Function, x0::Vector{Float64}, tol::Float64,
         _hybrd1_cfunc, pointer_from_objref(trace), n, x, fvec, tol, wa, lwa
     )
 
-    msg = _hybr_messages[max(-1, return_code)]
-    if return_code < 0
+    msg = _hybr_messages[max(-2, return_code)]
+    if return_code < -1
         msg = msg * string(return_code)
     end
 
@@ -186,8 +188,7 @@ function _lmdif1_func_wrapper(_p::Ptr{Void}, m::Cint, n::Cint, _x::Ptr{Cdouble},
 
     trace = unsafe_pointer_to_objref(_p)::AlgoTrace
     push!(trace, x, fvec, iflag)
-
-    Cint(0)
+    trace.f_calls > trace.maxit ? Cint(-1) : Cint(0)
 end
 const _lmdif1_cfunc = cfunction(_lmdif1_func_wrapper, Cint, (Ptr{Void}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint))
 
@@ -205,12 +206,13 @@ const _lmdif1_messages = Dict{Int,String}(
     5 => "maximum iterations has been exceeded",
     6 => "tol is too small, no further reduction of sum of squares is possible",
     7 => "tol is too small, no further improvement in x is possible",
-    -1 => "user terminated iterations with code "
+    -1 => "exceeded user imposed number of iterations",
+    -2 => "user terminated iterations with code "
 )
 
 # NOTE: default doesn't always hold
 function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
-                show_trace::Bool, tracing::Bool, io::IO)
+                show_trace::Bool, tracing::Bool, maxit::Int, io::IO)
     x = copy(x0)
     n = length(x)
     if n > m
@@ -223,7 +225,7 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
     iwa = Array{Int}(n)
     wa = Array{Float64}(lwa)
     _lmdif1_func_ref[] = f!
-    trace = AlgoTrace(x0, show_trace, tracing, io)
+    trace = AlgoTrace(x0, show_trace, tracing, maxit, io)
 
     if show_trace
         show(io, trace)
@@ -236,8 +238,8 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
         _lmdif1_cfunc, pointer_from_objref(trace), m, n, x, fvec, tol, iwa, wa, lwa
     )
 
-    msg = _lmdif1_messages[max(-1, return_code)]
-    if return_code < 0
+    msg = _lmdif1_messages[max(-2, return_code)]
+    if return_code < -1
         msg = msg * string(return_code)
     end
     converged = return_code in [1, 2, 3]
@@ -248,11 +250,11 @@ end
 
 function fsolve(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float64=1e-8,
                 show_trace::Bool=false, tracing::Bool=false, method::Symbol=:hybr,
-                io::IO=STDOUT)
+                iterations::Int=typemax(Int), io::IO=STDOUT)
     if method == :hybr
-        return hybrd1(f!, x0, tol, show_trace, tracing, io)
+        return hybrd1(f!, x0, tol, show_trace, tracing, iterations, io)
     elseif method == :lm
-        return lmdif1(f!, x0, m, tol, show_trace, tracing, io)
+        return lmdif1(f!, x0, m, tol, show_trace, tracing, iterations, io)
     else
         error("unknown method $(method)")
     end
