@@ -112,6 +112,86 @@ function Base.show(io::IO, s::SolverResults)
     @printf io " * Jacobian Calls (df/dx): %d" s.trace.g_calls
 end
 
+## Wrapping hybrd routine
+const _hybrd_func_ref = Ref{Function}()
+function _hybrd_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
+                             _fvec::Ptr{Cdouble}, iflag::Cint)
+    fvec = unsafe_wrap(Array, _fvec, n)
+    x = unsafe_wrap(Array, _x, n)
+    if iflag < 0
+        print(fvec)
+        return Cint(0)
+    end
+    _hybrd_func_ref[](x, fvec)
+
+    trace = unsafe_pointer_to_objref(_p)::AlgoTrace
+    push!(trace, x, fvec, iflag)
+
+    trace.f_calls > trace.maxit ? Cint(-1) : Cint(0)
+end
+const _hybrd_cfunc = cfunction(_hybrd_func_wrapper, Cint, (Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint))
+
+const _hybr_messages = Dict{Int,String}(
+    0 => "improper input parameters",
+    1 => string("algorithm estimates that the relative error between x and the ",
+                "solution is at most tol"),
+    2 => "maximum iterations has been exceeded",
+    3 => "tol is too small, no further improvement in x is possible",
+    4 => string("iteration is not making good progress, measured by ",
+                "improvement from last 5 jacobian evaluations"),
+    5 => string("iteration is not making good progress, measured by ",
+                "improvement from last 10 iterations"),
+    -1 => "exceeded user imposed number of iterations",
+    -2 => "user terminated iterations with code "
+)
+
+function hybrd(f!::Function, x0::Vector{Float64}, tol::Float64,
+               show_trace::Bool, tracing::Bool, maxit::Int, io::IO;
+               _n=length(x0), ml=_n-1, mu=_n-1, epsfcn=0.0,
+               diag=fill(1.0, _n), mode=2, factor=100.0, nprint=0,
+               lr=ceil(Int, _n*(_n+1)/2))
+    n = length(x0)
+    x = copy(x0)
+    fvec = similar(x)
+    fjac = Array{Float64}(n, n)
+    lwa = ceil(Int, (n*(3*n+13))/2)
+    wa = ones(lwa)
+    _hybrd_func_ref[] = f!
+    trace = AlgoTrace(x0, show_trace, tracing, maxit, io)
+
+    r = Array{Float64}(lr)
+    qtf = Array{Float64}(n)
+    wa1 = Array{Float64}(n)
+    wa2 = Array{Float64}(n)
+    wa3 = Array{Float64}(n)
+    wa4 = Array{Float64}(n)
+
+    if show_trace
+        show(io, trace)
+    end
+
+    return_code = ccall(
+        (:hybrd,cminpack),
+        Cint,
+        (Ptr{Void}, Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble,
+        Cint, Cint, Cint, Cdouble, Ptr{Cdouble}, Cint, Cdouble, Cint, Ptr{Cint},
+        Ptr{Cdouble}, Cint, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Ptr{Cdouble},
+        Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}),
+        _hybrd_cfunc, pointer_from_objref(trace), n, x, fvec, tol, maxit, ml, mu,
+        epsfcn, diag, mode, factor, nprint, [0], fjac, n, r, lr, qtf, wa1, wa2, wa3, wa4
+    )
+
+    msg = _hybr_messages[max(-2, return_code)]
+    if return_code < -1
+        msg = msg * string(return_code)
+    end
+
+    coverged = return_code == 1
+    trace.tot_time = time() - trace.start_time
+
+    SolverResults("Modified Powell (Expert)", x0, x, fvec, return_code, coverged, msg, trace)
+end
+
 ## Wrapping hybrd1 routine
 const _hybrd1_func_ref = Ref{Function}()
 function _hybrd1_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
