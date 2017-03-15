@@ -17,6 +17,14 @@ function f!(x, fvec=similar(x))
     fvec
 end
 
+function g!(x, fjac=Array{Float64}(length(x), length(x)))
+    fjac[1, 1] = x[2]^3 - 7
+    fjac[1, 2] = 3 * (x[1] + 3) * x[2]*x[2]
+    fjac[2, 1] = x[2] * exp(x[1]) * cos(x[2] * exp(x[1]) - 1)
+    fjac[2, 2] = exp(x[1]) * cos(x[2] * exp(x[1]) - 1)
+    fjac
+end
+
 immutable IterationState
     iteration::Int
     fnorm::Float64
@@ -131,7 +139,7 @@ function _hybrd_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
 end
 const _hybrd_cfunc = cfunction(_hybrd_func_wrapper, Cint, (Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint))
 
-const _hybr_messages = Dict{Int,String}(
+const _hybrd_messages = Dict{Int, String}(
     0 => "improper input parameters",
     1 => string("algorithm estimates that the relative error between x and the ",
                 "solution is at most tol"),
@@ -147,9 +155,10 @@ const _hybr_messages = Dict{Int,String}(
 
 function hybrd(f!::Function, x0::Vector{Float64}, tol::Float64,
                show_trace::Bool, tracing::Bool, maxit::Int, io::IO;
-               _n=length(x0), ml=_n-1, mu=_n-1, epsfcn=0.0,
-               diag=fill(1.0, _n), mode=2, factor=100.0, nprint=0,
-               lr=ceil(Int, _n*(_n+1)/2))
+               _n::Int=length(x0), ml::Int=_n-1, mu::Int=_n-1,
+               epsfcn::Float64=0.0, diag::Vector{Float64}=fill(1.0, _n),
+               mode::Int=2, factor::Float64=100.0, nprint::Int=0,
+               lr::Cint=ceil(Cint, _n*(_n+1)/2))
     n = length(x0)
     x = copy(x0)
     fvec = similar(x)
@@ -171,17 +180,20 @@ function hybrd(f!::Function, x0::Vector{Float64}, tol::Float64,
     end
 
     return_code = ccall(
-        (:hybrd,cminpack),
+        (:hybrd, cminpack),
         Cint,
-        (Ptr{Void}, Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble,
-        Cint, Cint, Cint, Cdouble, Ptr{Cdouble}, Cint, Cdouble, Cint, Ptr{Cint},
-        Ptr{Cdouble}, Cint, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Ptr{Cdouble},
-        Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}),
-        _hybrd_cfunc, pointer_from_objref(trace), n, x, fvec, tol, maxit, ml, mu,
-        epsfcn, diag, mode, factor, nprint, [0], fjac, n, r, lr, qtf, wa1, wa2, wa3, wa4
+        (
+            Ptr{Void}, Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble,
+            Cint, Cint, Cint, Cdouble, Ptr{Cdouble}, Cint, Cdouble, Cint,
+            Ptr{Cint}, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Cint, Ptr{Cdouble},
+            Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}
+        ),
+        _hybrd_cfunc, pointer_from_objref(trace), n, x, fvec, tol, typemax(Cint),
+        ml, mu, epsfcn, diag, mode, factor, nprint, [0], fjac, n, r, lr, qtf,
+        wa1, wa2, wa3, wa4
     )
 
-    msg = _hybr_messages[max(-2, return_code)]
+    msg = _hybrd_messages[max(-2, return_code)]
     if return_code < -1
         msg = msg * string(return_code)
     end
@@ -211,7 +223,7 @@ function _hybrd1_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
 end
 const _hybrd1_cfunc = cfunction(_hybrd1_func_wrapper, Cint, (Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint))
 
-const _hybr_messages = Dict{Int,String}(
+const _hybr_messages = Dict{Int, String}(
     0 => "improper input parameters",
     1 => string("algorithm estimates that the relative error between x and the ",
                 "solution is at most tol"),
@@ -273,7 +285,7 @@ end
 const _lmdif1_cfunc = cfunction(_lmdif1_func_wrapper, Cint, (Ptr{Void}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint))
 
 
-const _lmdif1_messages = Dict{Int,String}(
+const _lmdif1_messages = Dict{Int, String}(
     0 => "improper input parameters",
     1 => string("algorithm estimates that the relative error between x and the ",
                 "solution is at most tol"),
@@ -312,7 +324,7 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
     end
 
     return_code = ccall(
-        (:lmdif1,cminpack),
+        (:lmdif1, cminpack),
         Cint,
         (Ptr{Void}, Ptr{Void}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble, Ptr{Cint}, Ptr{Cdouble}, Cint),
         _lmdif1_cfunc, pointer_from_objref(trace), m, n, x, fvec, tol, iwa, wa, lwa
@@ -330,11 +342,13 @@ end
 
 function fsolve(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float64=1e-8,
                 show_trace::Bool=false, tracing::Bool=false, method::Symbol=:hybr,
-                iterations::Int=typemax(Int), io::IO=STDOUT)
+                iterations::Int=typemax(Int), io::IO=STDOUT, kwargs...)
     if method == :hybr
         return hybrd1(f!, x0, tol, show_trace, tracing, iterations, io)
     elseif method == :lm
         return lmdif1(f!, x0, m, tol, show_trace, tracing, iterations, io)
+    elseif method == :hybrd
+        return hybrd(f!, x0, tol, show_trace, tracing, iterations, io; kwargs...)
     else
         error("unknown method $(method)")
     end
