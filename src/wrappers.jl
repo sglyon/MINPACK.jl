@@ -84,22 +84,31 @@ end
 
 ## Wrapping hybrj routine
 const _hybrj_func_ref = Ref{Function}()
+const _hybrj_jac_func_ref = Ref{Function}()
 function _hybrj_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
-                             _fvec::Ptr{Cdouble}, iflag::Cint)
+                             _fvec::Ptr{Cdouble}, _fjac::Ptr{Cdouble},
+                             ldfjac::Cint, iflag::Cint)
     fvec = unsafe_wrap(Array, _fvec, n)
+    fjac_flat = unsafe_wrap(Array, _fjac, ldfjac*n)
+    fjac = reshape(fjac_flat, Int(ldfjac), Int(n))
     x = unsafe_wrap(Array, _x, n)
     if iflag < 0
         print(fvec)
         return Cint(0)
     end
-    _hybrj_func_ref[](x, fvec)
+
+    if iflag == 1
+        _hybrj_func_ref[](x, fvec)
+    elseif iflag == 2
+        _hybrj_jac_func_ref[](x, fjac)
+    end
 
     trace = unsafe_pointer_to_objref(_p)::AlgoTrace
     push!(trace, x, fvec, iflag)
 
     trace.f_calls > trace.maxit ? Cint(-1) : Cint(0)
 end
-const _hybrj_cfunc = cfunction(_hybrj_func_wrapper, Cint, (Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint))
+const _hybrj_cfunc = cfunction(_hybrj_func_wrapper, Cint, (Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Cint, Cint))
 
 const _hybrj_messages = Dict{Int, String}(
     0 => "improper input parameters",
@@ -115,19 +124,22 @@ const _hybrj_messages = Dict{Int, String}(
     -2 => "user terminated iterations with code "
 )
 
-function hybrj(f!::Function, x0::Vector{Float64}, tol::Float64,
+function hybrj(f!::Function, g!::Function, x0::Vector{Float64}, xtol::Float64,
                show_trace::Bool, tracing::Bool, maxit::Int, io::IO;
                _n::Int=length(x0), ml::Int=_n-1, mu::Int=_n-1,
+               maxfev::Int=Int(typemax(Cint)),
                epsfcn::Float64=0.0, diag::Vector{Float64}=fill(1.0, _n),
                mode::Int=2, factor::Float64=100.0, nprint::Int=0,
                lr::Cint=ceil(Cint, _n*(_n+1)/2))
     n = length(x0)
+    ldfjac = n
     x = copy(x0)
     fvec = similar(x)
     fjac = Array{Float64}(n, n)
     lwa = ceil(Int, (n*(3*n+13))/2)
     wa = ones(lwa)
     _hybrj_func_ref[] = f!
+    _hybrj_jac_func_ref[] = g!
     trace = AlgoTrace(x0, show_trace, tracing, maxit, io)
 
     r = Array{Float64}(lr)
@@ -145,14 +157,17 @@ function hybrj(f!::Function, x0::Vector{Float64}, tol::Float64,
         (:hybrj, cminpack),
         Cint,
         (
-            Ptr{Void}, Ptr{Void}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble,
-            Cint, Cint, Cint, Cdouble, Ptr{Cdouble}, Cint, Cdouble, Cint,
-            Ptr{Cint}, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Cint, Ptr{Cdouble},
-            Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}
+            Ptr{Void}, Ptr{Void}, Cint,
+            Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Cint, Cdouble, Cint,
+            Ptr{Cdouble}, Cint, Cdouble, Cint, Ptr{Cint}, Ptr{Cint},
+            Ptr{Cdouble}, Cint,
+            Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}
         ),
-        _hybrj_cfunc, pointer_from_objref(trace), n, x, fvec, tol, typemax(Cint),
-        ml, mu, epsfcn, diag, mode, factor, nprint, [0], fjac, n, r, lr, qtf,
-        wa1, wa2, wa3, wa4
+        _hybrj_cfunc, pointer_from_objref(trace), n,
+        x, fvec, fjac, ldfjac, xtol, Cint(maxfev),
+        diag, mode, factor, nprint, [0], [0],
+        r, lr,
+        qtf, wa1, wa2, wa3, wa4
     )
 
     msg = _hybrj_messages[max(-2, return_code)]
