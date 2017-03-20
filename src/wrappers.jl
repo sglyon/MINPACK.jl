@@ -178,7 +178,7 @@ function hybrj(f!::Function, g!::Function, x0::Vector{Float64}, xtol::Float64,
     coverged = return_code == 1
     trace.tot_time = time() - trace.start_time
 
-    SolverResults("Modified Powell (Expert)", x0, x, fvec, return_code, coverged, msg, trace)
+    SolverResults("Modified Powell (User Jac, Expert)", x0, x, fvec, return_code, coverged, msg, trace)
 end
 
 ## Wrapping hybrd1 routine
