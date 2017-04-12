@@ -127,6 +127,8 @@ function fsolve(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float
         return hybrd1(f!, x0, tol, show_trace, tracing, iterations, io)
     elseif method == :lm
         return lmdif1(f!, x0, m, tol, show_trace, tracing, iterations, io)
+    elseif method == :lmdif
+        return lmdif(f!, x0, m, tol, show_trace, tracing, iterations, io; kwargs...)
     elseif method == :hybrd
         return hybrd(f!, x0, tol, show_trace, tracing, iterations, io; kwargs...)
     else
