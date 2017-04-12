@@ -317,7 +317,7 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
     SolverResults("Levenberg-Marquardt", x0, x, fvec, return_code, converged, msg, trace)
 end
 
-## Wrapping lmdif1 routine
+## Wrapping lmdif routine
 const _lmdif_func_ref = Ref{Function}()
 function _lmdif_func_wrapper(_p::Ptr{Void}, m::Cint, n::Cint, _x::Ptr{Cdouble},
                              _fvec::Ptr{Cdouble}, iflag::Cint)
@@ -356,7 +356,6 @@ const _lmdif_messages = Dict{Int, String}(
     -2 => "user terminated iterations with code "
 )
 
-# NOTE: default doesn't always hold
 function lmdif(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
                 show_trace::Bool, tracing::Bool, maxit::Int, io::IO;
                 _n::Int = length(x0),
@@ -419,6 +418,119 @@ function lmdif(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
         converged, msg, trace)
 end
 
+## Wrapping lmder routine
+const _lmder_func_ref = Ref{Function}()
+const _lmder_jac_func_ref = Ref{Function}()
+function _lmder_func_wrapper(_p::Ptr{Void}, m::Cint, n::Cint,
+                             _x::Ptr{Cdouble}, _fvec::Ptr{Cdouble},
+                             _fjac::Ptr{Cdouble}, ldfjac::Cint,
+                             iflag::Cint)
+    fvec = unsafe_wrap(Array, _fvec, m)
+    fjac_flat = unsafe_wrap(Array, _fjac, ldfjac*n)
+    fjac = reshape(fjac_flat, Int(ldfjac), Int(n))
+    x = unsafe_wrap(Array, _x, n)
+    if iflag < 0
+        print(fvec)
+        return Cint(0)
+    end
+
+    if iflag == 1
+        _lmder_func_ref[](x, fvec)
+    elseif iflag == 2
+        _lmder_jac_func_ref[](x, fjac)
+    end
+
+    trace = unsafe_pointer_to_objref(_p)::AlgoTrace
+    push!(trace, x, fvec, iflag)
+
+    trace.f_calls > trace.maxit ? Cint(-1) : Cint(0)
+end
+const _lmder_cfunc = cfunction(_lmder_func_wrapper, Cint, (Ptr{Void}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Cint, Cint))
+
+const _lmder_messages = Dict{Int, String}(
+    0 => "improper input parameters",
+    1 => string("Both actual and predicted relative errors in the sum of ",
+                "squares are at most ftol"),
+    2 => "relative error between two consecutive iterates is at most xtol",
+    3 => string("Both actual and predicted relative errors in the sum of ",
+                "squares are at most ftol",
+                "\nAND relative error between two consecutive iterates is ",
+                "at most xtol"),
+    4 =>  string("the cosine of the angle between fvec and any column of the ",
+                 "jacobian is at most gtol in absolute value"),
+    5 => "number of calls to fcn has reached or exceeded maxfev",
+    6 => "ftol is too small, no further reduction of sum of squares is possible",
+    7 => "xtol is too small, no further improvement in x is possible",
+    8 => string("gtol is too small. fvec is orthogonal to the columns of the ",
+                "jacobian to machine precision"),
+    -1 => "exceeded user imposed number of iterations",
+    -2 => "user terminated iterations with code "
+)
+
+function lmder(f!::Function, g!::Function, x0::Vector{Float64}, m::Int,
+               tol::Float64, show_trace::Bool, tracing::Bool, maxit::Int,
+               io::IO; _n::Int=length(x0),
+               gtol::Float64=0.0, ftol::Float64=tol, xtol::Float64=tol,
+               epsfcn::Float64=0.0, mode::Int=1, nprint::Int=0,
+               maxfev::Int=(_n+1)*200, factor::Float64=100.0,
+               ldfjac::Int=m)
+    x = copy(x0)
+    n = length(x)
+    if n > m
+        msg = "Must have at least as many variables as equations"
+        throw(ArgumentError(msg))
+    end
+
+    fvec = Array{Float64}(m)
+    lwa = m*n+5*n+m
+    iwa = Array{Int}(n)
+    wa = Array{Float64}(lwa)
+    _lmder_func_ref[] = f!
+    _lmder_jac_func_ref[] = g!
+    trace = AlgoTrace(x0, show_trace, tracing, maxit, io)
+
+    diag = Array{Float64}(n)
+    nfev = [0]
+    njev = [0]
+    fjac = Array{Float64}(m, n)
+    ipvt = Array{Cint}(n)
+    qtf = Array{Float64}(n)
+    wa1 = Array{Float64}(n)
+    wa2 = Array{Float64}(n)
+    wa3 = Array{Float64}(n)
+    wa4 = Array{Float64}(m)
+
+    if show_trace
+        show(io, trace)
+    end
+
+    return_code = ccall(
+        (:lmder, cminpack),
+        Cint,
+        # func         p        m     n        x             fvec       fjac
+        (Ptr{Void}, Ptr{Void}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble},
+        # ldfjac  ftol  xtol     gtol   maxfev   diag        mode   factor
+        Cint, Cdouble, Cdouble, Cdouble, Cint, Ptr{Cdouble}, Cint, Cdouble,
+        # nprint  nfev    njev        ipvt        qtf         wa1
+        Cint, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cdouble}, Ptr{Cdouble},
+        # wa2            wa3          wa4
+        Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}),
+
+        _lmder_cfunc, pointer_from_objref(trace), m, n, x, fvec, fjac,
+        ldfjac, ftol, xtol, gtol, maxfev, diag, mode, factor, nprint, nfev,
+        njev, ipvt, qtf, wa1, wa2, wa3, wa4
+    )
+
+    msg = _lmder_messages[max(-2, return_code)]
+    if return_code < -1
+        msg = msg * string(return_code)
+    end
+    converged = return_code in [1, 2, 3]
+    trace.tot_time = time() - trace.start_time
+
+    SolverResults("Levenberg-Marquardt (expert)", x0, x, fvec, return_code,
+        converged, msg, trace)
+end
 
 ## Wrapping fdjac1 routine
 const _fdjac1_func_ref = Ref{Function}()

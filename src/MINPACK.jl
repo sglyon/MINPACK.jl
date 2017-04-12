@@ -141,7 +141,9 @@ function fsolve(f!::Function, g!::Function, x0::Vector{Float64}, m::Int=length(x
                 method::Symbol=:hybr, iterations::Int=typemax(Int), io::IO=STDOUT,
                 kwargs...)
     if method == :hybr
-        return hybrj(f!, g!, x0, tol, show_trace, tracing, iterations, io)
+        return hybrj(f!, g!, x0, tol, show_trace, tracing, iterations, io; kwargs...)
+    elseif method == :lm
+        return lmder(f!, g!, x0, m, tol, show_trace, tracing, iterations, io; kwargs...)
     else
         error("unknown method $(method)")
     end
