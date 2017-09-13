@@ -32,7 +32,7 @@ SOFTWARE.
 # If the results should be printed to a
 const PRINT_FILE = false
 
-struct DifferentiableMultivariateFunction{Tf,Tg}
+immutable DifferentiableMultivariateFunction{Tf,Tg}
     f!::Tf
     g!::Tg
 end
