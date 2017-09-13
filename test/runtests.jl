@@ -307,7 +307,7 @@ function brown_almost_linear(n::Integer)
             end
         end
     end
-    (DifferentiableMultivariateFunction(f!, g!), 0.5*ones(n), "Brown almost-linear")
+    (DifferentiableMultivariateFunction(f!, g!), 0.5*ones(n), "Brown almost-linear$n")
 end
 
 function discrete_boundary_value(n::Integer)
@@ -534,8 +534,6 @@ alltests = [rosenbrock();
             broyden_banded(10);
            ]
 
-TESTS_FAIL_NEWTON = ["Trigonometric", "Chebyquad", "Brown almost-linear"]
-
 if PRINT_FILE; f_out = open("minpack_results.dat", "w"); end
 
 @printf("%-45s   %5s   %5s   %5s   %14s     %10s\n", "Function", "Dim", "NFEV",
@@ -551,7 +549,12 @@ end
 
 for (df, initial, name) in alltests
     for method in (:hybr, :lm)
-        if name == "Trigonometric" && method == :hybr
+        if name "Trigonometric" && method == :hybr
+            continue
+        end
+        if (Sys.WORD_SIZE == 32 &&
+            name in ["Brown almost-linear30", "Brown almost-linear40"] &&
+            method == :hybr )
             continue
         end
         tot_time = @elapsed r = fsolve(df.f!, df.g!, initial, method=method, tracing=true)
