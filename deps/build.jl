@@ -11,4 +11,17 @@ url = "https://github.com/devernay/cminpack/archive/master.zip"
             run(`make`)
         end
     end
+elseif is_windows()
+    if Sys.WORD_SIZE == 64
+        dll_url = "https://github.com/sglyon/MINPACK.jl/releases/download/v0.0.0/libcminpack.dll"
+    else
+        dll_url = "https://github.com/sglyon/MINPACK.jl/releases/download/v0.0.0/libcminpack32.dll"
+    end
+
+    cd(joinpath(dirname(@__FILE__))) do
+        mkdir("cminpack-master")
+        cd("cminpack-master") do
+            download(dll_url, "libcminpack.dll")
+        end
+    end
 end

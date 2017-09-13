@@ -175,7 +175,7 @@ function hybrj(f!::Function, g!::Function, x0::Vector{Float64}, xtol::Float64,
         msg = msg * string(return_code)
     end
 
-    coverged = return_code == 1
+    coverged = return_code == 1 || norm(fvec, Inf) <= xtol
     trace.tot_time = time() - trace.start_time
 
     SolverResults("Modified Powell (User Jac, Expert)", x0, x, fvec, return_code, coverged, msg, trace)
@@ -237,7 +237,7 @@ function hybrd1(f!::Function, x0::Vector{Float64}, tol::Float64,
         msg = msg * string(return_code)
     end
 
-    coverged = return_code == 1
+    coverged = return_code == 1 || norm(fvec, Inf) <= tol
     trace.tot_time = time() - trace.start_time
 
     SolverResults("Modified Powell", x0, x, fvec, return_code, coverged, msg, trace)
@@ -311,7 +311,7 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
     if return_code < -1
         msg = msg * string(return_code)
     end
-    converged = return_code in [1, 2, 3]
+    converged = return_code in [1, 2, 3] || norm(fvec, Inf) <= tol
     trace.tot_time = time() - trace.start_time
 
     SolverResults("Levenberg-Marquardt", x0, x, fvec, return_code, converged, msg, trace)
@@ -411,7 +411,7 @@ function lmdif(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
     if return_code < -1
         msg = msg * string(return_code)
     end
-    converged = return_code in [1, 2, 3]
+    converged = return_code in [1, 2, 3, 4] || norm(fvec, Inf) <= ftol
     trace.tot_time = time() - trace.start_time
 
     SolverResults("Levenberg-Marquardt (expert)", x0, x, fvec, return_code,
@@ -525,7 +525,7 @@ function lmder(f!::Function, g!::Function, x0::Vector{Float64}, m::Int,
     if return_code < -1
         msg = msg * string(return_code)
     end
-    converged = return_code in [1, 2, 3]
+    converged = return_code in [1, 2, 3, 4, 8] || norm(fvec, Inf) <= ftol
     trace.tot_time = time() - trace.start_time
 
     SolverResults("Levenberg-Marquardt (expert)", x0, x, fvec, return_code,
