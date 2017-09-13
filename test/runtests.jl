@@ -549,7 +549,7 @@ end
 
 for (df, initial, name) in alltests
     for method in (:hybr, :lm)
-        if name "Trigonometric" && method == :hybr
+        if name == "Trigonometric" && method == :hybr
             continue
         end
         if (Sys.WORD_SIZE == 32 &&
