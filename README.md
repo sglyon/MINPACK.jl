@@ -17,10 +17,10 @@ fsolve(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float64=1e-8,
        show_trace::Bool=false, tracing::Bool=false, method::Symbol=:hybr,
        iterations::Int=typemax(Int), io::IO=STDOUT, kwargs...)
 
-function fsolve(f!::Function, g!::Function, x0::Vector{Float64}, m::Int=length(x0);
-                tol::Float64=1e-8, show_trace::Bool=false, tracing::Bool=false,
-                method::Symbol=:hybr, iterations::Int=typemax(Int), io::IO=STDOUT,
-                kwargs...)
+fsolve(f!::Function, g!::Function, x0::Vector{Float64}, m::Int=length(x0);
+       tol::Float64=1e-8, show_trace::Bool=false, tracing::Bool=false,
+       method::Symbol=:hybr, iterations::Int=typemax(Int), io::IO=STDOUT,
+       kwargs...)
 ```
 
 The functions `f!` and `g!` should accept the current point (call it `x`) as the first argument and fill the second argument with the function values and Jacobian matrix, repsectively. If no Jacobian is passed, one will be approximated using finite differences.
