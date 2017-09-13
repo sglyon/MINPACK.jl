@@ -10,21 +10,6 @@ const cminpack = joinpath(
     dirname(dirname(@__FILE__)), "deps", "libcminpack.$(_dl_ext)"
 )
 
-# Just a testing function. Will delete soon...
-function f!(x, fvec=similar(x))
-    fvec[1] = (x[1]+3)*(x[2]^3-7)+18
-    fvec[2] = sin(x[2]*exp(x[1])-1)
-    fvec
-end
-
-function g!(x, fjac=Array{Float64}(length(x), length(x)))
-    fjac[1, 1] = x[2]^3 - 7
-    fjac[1, 2] = 3 * (x[1] + 3) * x[2]*x[2]
-    fjac[2, 1] = x[2] * exp(x[1]) * cos(x[2] * exp(x[1]) - 1)
-    fjac[2, 2] = exp(x[1]) * cos(x[2] * exp(x[1]) - 1)
-    fjac
-end
-
 immutable IterationState
     iteration::Int
     fnorm::Float64
