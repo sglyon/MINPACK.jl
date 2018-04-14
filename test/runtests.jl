@@ -40,11 +40,11 @@ end
 @testset "minpack" begin
 
 function rosenbrock()
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         fvec[1] = 1 - x[1]
         fvec[2] = 10(x[2]-x[1]^2)
     end
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         fjac[1,1] = -1
         fjac[1,2] = 0
         fjac[2,1] = -20x[1]
@@ -54,13 +54,13 @@ function rosenbrock()
 end
 
 function powell_singular()
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         fvec[1] = x[1] + 10x[2]
         fvec[2] = sqrt(5)*(x[3] - x[4])
         fvec[3] = (x[2] - 2x[3])^2
         fvec[4] = sqrt(10)*(x[1] - x[4])^2
     end
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         fill!(fjac, 0)
         fjac[1,1] = 1
         fjac[1,2] = 10
@@ -77,11 +77,11 @@ end
 function powell_badly_scaled()
     const c1 = 1e4
     const c2 = 1.0001
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         fvec[1] = c1*x[1]*x[2] - 1
         fvec[2] = exp(-x[1]) + exp(-x[2]) - c2
     end
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         fjac[1,1] = c1*x[2]
         fjac[1,2] = c1*x[1]
         fjac[2,1] = -exp(-x[1])
@@ -96,7 +96,7 @@ function wood()
     const c5 = 1.98e1
     const c6 = 1.8e2
 
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         temp1 = x[2] - x[1]^2
         temp2 = x[4] - x[3]^2
         fvec[1] = -c3*x[1]*temp1 - (1 - x[1])
@@ -105,7 +105,7 @@ function wood()
         fvec[4] = c6*temp2 + c4*(x[4] - 1) + c5*(x[2] - 1)
     end
 
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         fill!(fjac, 0)
         temp1 = x[2] - 3x[1]^2
         temp2 = x[4] - 3x[3]^2
@@ -128,7 +128,7 @@ function helical_valley()
     const c7 = 2.5e-1
     const c8 = 5e-1
 
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         if x[1] > 0
             temp1 = atan(x[2]/x[1])/tpi
         elseif x[1] < 0
@@ -142,7 +142,7 @@ function helical_valley()
         fvec[3] = x[3]
     end
 
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         temp = x[1]^2 + x[2]^2
         temp1 = tpi*temp
         temp2 = sqrt(temp)
@@ -162,7 +162,7 @@ end
 function watson(n::Integer)
     const c9 = 2.9e1
 
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         fill!(fvec, 0)
         for i = 1:29
             ti = i/c9
@@ -191,7 +191,7 @@ function watson(n::Integer)
         fvec[2] += temp
     end
 
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         fill!(fjac, 0)
         for i = 1:29
             ti = i/c9
@@ -237,7 +237,7 @@ end
 function chebyquad(n::Integer)
     const tk = 1/n
 
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         fill!(fvec, 0)
         for j = 1:n
             temp1 = 1.0
@@ -260,7 +260,7 @@ function chebyquad(n::Integer)
         end
     end
 
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         for j = 1:n
             temp1 = 1.
             temp2 = 2x[j] - 1
@@ -282,7 +282,7 @@ function chebyquad(n::Integer)
 end
 
 function brown_almost_linear(n::Integer)
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         sum1 = sum(x) - (n+1)
         for k = 1:(n-1)
             fvec[k] = x[k] + sum1
@@ -290,7 +290,7 @@ function brown_almost_linear(n::Integer)
         fvec[n] = prod(x) - 1
     end
 
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         fill!(fjac, 1)
         fjac[diagind(fjac)] = 2
         prd = prod(x)
@@ -313,7 +313,7 @@ end
 function discrete_boundary_value(n::Integer)
     const h = 1/(n+1)
 
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         for k = 1:n
             temp = (x[k] + k*h + 1)^3
             if k != 1
@@ -330,7 +330,7 @@ function discrete_boundary_value(n::Integer)
         end
     end
 
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         for k = 1:n
             temp = 3*(x[k]+k*h+1)^2
             for j = 1:n
@@ -354,7 +354,7 @@ end
 function discrete_integral_equation(n::Integer)
     const h = 1/(n+1)
 
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         for k = 1:n
             tk = k*h
             sum1 = 0.0
@@ -374,7 +374,7 @@ function discrete_integral_equation(n::Integer)
         end
     end
 
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         for k = 1:n
             tk = k*h
             for j = 1:n
@@ -392,7 +392,7 @@ function discrete_integral_equation(n::Integer)
 end
 
 function trigonometric(n::Integer)
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         for j = 1:n
             fvec[j] = cos(x[j])
         end
@@ -402,7 +402,7 @@ function trigonometric(n::Integer)
         end
     end
 
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         for j = 1:n
             temp = sin(x[j])
             for k = 1:n
@@ -415,7 +415,7 @@ function trigonometric(n::Integer)
 end
 
 function variably_dimensioned(n::Integer)
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         sum1 = 0.0
         for j = 1:n
             sum1 += j*(x[j]-1)
@@ -426,7 +426,7 @@ function variably_dimensioned(n::Integer)
         end
     end
 
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         sum1 = 0.0
         for j = 1:n
             sum1 += j*(x[j]-1)
@@ -444,7 +444,7 @@ function variably_dimensioned(n::Integer)
 end
 
 function broyden_tridiagonal(n::Integer)
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         for k = 1:n
             temp = (3-2x[k])*x[k]
             if k != 1
@@ -461,7 +461,7 @@ function broyden_tridiagonal(n::Integer)
         end
     end
 
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         fill!(fjac, 0)
         for k = 1:n
             fjac[k,k] = 3-4x[k]
@@ -480,7 +480,7 @@ function broyden_banded(n::Integer)
     const ml = 5
     const mu = 1
 
-    function f!(x::Vector, fvec::Vector)
+    function f!(fvec::Vector, x::Vector)
         for k = 1:n
             k1 = max(1, k-ml)
             k2 = min(k+mu, n)
@@ -494,7 +494,7 @@ function broyden_banded(n::Integer)
         end
     end
 
-    function g!(x::Vector, fjac::Matrix)
+    function g!(fjac::Matrix, x::Vector)
         fill!(fjac, 0)
         for k = 1:n
             k1 = max(1, k-ml)

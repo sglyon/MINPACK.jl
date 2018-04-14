@@ -25,20 +25,20 @@ fsolve(f!::Function, g!::Function, x0::Vector{Float64}, m::Int=length(x0);
        kwargs...)
 ```
 
-The functions `f!` and `g!` should accept the current point (call it `x`) as the first argument and fill the second argument with the function values and Jacobian matrix, repsectively. If no Jacobian is passed, one will be approximated using finite differences.
+The functions `f!` and `g!` should accept the current point (call it `x`) as the _second_ argument and fill the first argument with the function values and Jacobian matrix, repsectively. If no Jacobian is passed, one will be approximated using finite differences.
 
 Example:
 
 ```julia
 julia> using MINPACK
 
-julia> function f!(x, fvec=similar(x))
+julia> function f!(fvec, x)
            fvec[1] = (x[1]+3)*(x[2]^3-7)+18
            fvec[2] = sin(x[2]*exp(x[1])-1)
            fvec
        end;
 
-julia> function g!(x, fjac=Array{Float64}(length(x), length(x)))
+julia> function g!(fjac, x)
            fjac[1, 1] = x[2]^3 - 7
            fjac[1, 2] = 3 * (x[1] + 3) * x[2]*x[2]
            fjac[2, 1] = x[2] * exp(x[1]) * cos(x[2] * exp(x[1]) - 1)
@@ -87,4 +87,3 @@ Available methods for the version where both `f!` and `g!` are passed are:
 
 - `:hybr`: Advacned modified version of Powell's algorithm with user supplied Jacobian. Additional arguments are available via `;kwargs...`. See MINPACK routine [`hybrj`](https://github.com/devernay/cminpack/blob/d1f5f5a273862ca1bbcf58394e4ac060d9e22c76/hybrj.c) for more information
 - `:lm`: Advanced Levenberg-Marquardt with user supplied Jacobian. Additional arguments are available via `;kwargs...`. See MINPACK routine [`lmder`](https://github.com/devernay/cminpack/blob/d1f5f5a273862ca1bbcf58394e4ac060d9e22c76/lmder.c) for more information
-

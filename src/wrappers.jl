@@ -8,7 +8,7 @@ function _hybrd_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
         print(fvec)
         return Cint(0)
     end
-    _hybrd_func_ref[](x, fvec)
+    _hybrd_func_ref[](fvec, x)
 
     trace = unsafe_pointer_to_objref(_p)::AlgoTrace
     push!(trace, x, fvec, iflag)
@@ -98,9 +98,9 @@ function _hybrj_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
     end
 
     if iflag == 1
-        _hybrj_func_ref[](x, fvec)
+        _hybrj_func_ref[](fvec, x)
     elseif iflag == 2
-        _hybrj_jac_func_ref[](x, fjac)
+        _hybrj_jac_func_ref[](fjac, x)
     end
 
     trace = unsafe_pointer_to_objref(_p)::AlgoTrace
@@ -191,7 +191,7 @@ function _hybrd1_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
         print(fvec)
         return Cint(0)
     end
-    _hybrd1_func_ref[](x, fvec)
+    _hybrd1_func_ref[](fvec, x)
 
     trace = unsafe_pointer_to_objref(_p)::AlgoTrace
     push!(trace, x, fvec, iflag)
@@ -253,7 +253,7 @@ function _lmdif1_func_wrapper(_p::Ptr{Void}, m::Cint, n::Cint, _x::Ptr{Cdouble},
         print(fvec)
         return Cint(0)
     end
-    _lmdif1_func_ref[](x, fvec)
+    _lmdif1_func_ref[](fvec, x)
 
     trace = unsafe_pointer_to_objref(_p)::AlgoTrace
     push!(trace, x, fvec, iflag)
@@ -327,7 +327,7 @@ function _lmdif_func_wrapper(_p::Ptr{Void}, m::Cint, n::Cint, _x::Ptr{Cdouble},
         print(fvec)
         return Cint(0)
     end
-    _lmdif_func_ref[](x, fvec)
+    _lmdif_func_ref[](fvec, x)
 
     trace = unsafe_pointer_to_objref(_p)::AlgoTrace
     push!(trace, x, fvec, iflag)
@@ -435,9 +435,9 @@ function _lmder_func_wrapper(_p::Ptr{Void}, m::Cint, n::Cint,
     end
 
     if iflag == 1
-        _lmder_func_ref[](x, fvec)
+        _lmder_func_ref[](fvec, x)
     elseif iflag == 2
-        _lmder_jac_func_ref[](x, fjac)
+        _lmder_jac_func_ref[](fjac, x)
     end
 
     trace = unsafe_pointer_to_objref(_p)::AlgoTrace
@@ -538,7 +538,7 @@ function _fdjac1_func_wrapper(_p::Ptr{Void}, n::Cint, _x::Ptr{Cdouble},
                               _fvec::Ptr{Cdouble}, iflag::Cint)
     fvec = unsafe_wrap(Array, _fvec, n)
     x = unsafe_wrap(Array, _x, n)
-    _fdjac1_func_ref[](x, fvec)
+    _fdjac1_func_ref[](fvec, x)
 
     Cint(0)
 end
