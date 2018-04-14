@@ -32,7 +32,7 @@ const _hybrd_messages = Dict{Int, String}(
 )
 
 function hybrd(f!::Function, x0::Vector{Float64}, tol::Float64,
-               show_trace::Bool, tracing::Bool, maxit::Int, io::IO;
+               show_trace::Bool, tracing::Bool, maxit::Int;
                _n::Int=length(x0), ml::Int=_n-1, mu::Int=_n-1,
                epsfcn::Float64=0.0, diag::Vector{Float64}=fill(1.0, _n),
                mode::Int=2, factor::Float64=100.0, nprint::Int=0,
@@ -44,7 +44,7 @@ function hybrd(f!::Function, x0::Vector{Float64}, tol::Float64,
     lwa = ceil(Int, (n*(3*n+13))/2)
     wa = ones(lwa)
     _hybrd_func_ref[] = f!
-    trace = AlgoTrace(x0, show_trace, tracing, maxit, io)
+    trace = AlgoTrace(x0, show_trace, tracing, maxit)
 
     r = Array{Float64}(lr)
     qtf = Array{Float64}(n)
@@ -54,7 +54,7 @@ function hybrd(f!::Function, x0::Vector{Float64}, tol::Float64,
     wa4 = Array{Float64}(n)
 
     if show_trace
-        show(io, trace)
+        show(trace)
     end
 
     return_code = ccall(
@@ -125,7 +125,7 @@ const _hybrj_messages = Dict{Int, String}(
 )
 
 function hybrj(f!::Function, g!::Function, x0::Vector{Float64}, xtol::Float64,
-               show_trace::Bool, tracing::Bool, maxit::Int, io::IO;
+               show_trace::Bool, tracing::Bool, maxit::Int;
                _n::Int=length(x0), ml::Int=_n-1, mu::Int=_n-1,
                maxfev::Int=Int(typemax(Cint)),
                epsfcn::Float64=0.0, diag::Vector{Float64}=fill(1.0, _n),
@@ -140,7 +140,7 @@ function hybrj(f!::Function, g!::Function, x0::Vector{Float64}, xtol::Float64,
     wa = ones(lwa)
     _hybrj_func_ref[] = f!
     _hybrj_jac_func_ref[] = g!
-    trace = AlgoTrace(x0, show_trace, tracing, maxit, io)
+    trace = AlgoTrace(x0, show_trace, tracing, maxit)
 
     r = Array{Float64}(lr)
     qtf = Array{Float64}(n)
@@ -150,7 +150,7 @@ function hybrj(f!::Function, g!::Function, x0::Vector{Float64}, xtol::Float64,
     wa4 = Array{Float64}(n)
 
     if show_trace
-        show(io, trace)
+        show(trace)
     end
 
     return_code = ccall(
@@ -212,17 +212,17 @@ const _hybr_messages = Dict{Int, String}(
 )
 
 function hybrd1(f!::Function, x0::Vector{Float64}, tol::Float64,
-                show_trace::Bool, tracing::Bool, maxit::Int, io::IO)
+                show_trace::Bool, tracing::Bool, maxit::Int)
     x = copy(x0)
     fvec = similar(x)
     n = length(x)
     lwa = ceil(Int, (n*(3*n+13))/2)
     wa = ones(lwa)
     _hybrd1_func_ref[] = f!
-    trace = AlgoTrace(x0, show_trace, tracing, maxit, io)
+    trace = AlgoTrace(x0, show_trace, tracing, maxit)
 
     if show_trace
-        show(io, trace)
+        show(trace)
     end
 
     return_code = ccall(
@@ -281,7 +281,7 @@ const _lmdif1_messages = Dict{Int, String}(
 
 # NOTE: default doesn't always hold
 function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
-                show_trace::Bool, tracing::Bool, maxit::Int, io::IO)
+                show_trace::Bool, tracing::Bool, maxit::Int)
     x = copy(x0)
     n = length(x)
     if n > m
@@ -294,10 +294,10 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
     iwa = Array{Int}(n)
     wa = Array{Float64}(lwa)
     _lmdif1_func_ref[] = f!
-    trace = AlgoTrace(x0, show_trace, tracing, maxit, io)
+    trace = AlgoTrace(x0, show_trace, tracing, maxit)
 
     if show_trace
-        show(io, trace)
+        show(trace)
     end
 
     return_code = ccall(
@@ -357,7 +357,7 @@ const _lmdif_messages = Dict{Int, String}(
 )
 
 function lmdif(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
-                show_trace::Bool, tracing::Bool, maxit::Int, io::IO;
+                show_trace::Bool, tracing::Bool, maxit::Int;
                 _n::Int = length(x0),
                 gtol::Float64=0.0, ftol::Float64=tol, xtol::Float64=tol,
                 epsfcn::Float64=0.0, mode::Int=1, nprint::Int=0,
@@ -375,7 +375,7 @@ function lmdif(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
     iwa = Array{Int}(n)
     wa = Array{Float64}(lwa)
     _lmdif_func_ref[] = f!
-    trace = AlgoTrace(x0, show_trace, tracing, maxit, io)
+    trace = AlgoTrace(x0, show_trace, tracing, maxit)
 
     diag = Array{Float64}(n)
     nfev = [0]
@@ -388,7 +388,7 @@ function lmdif(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
     wa4 = Array{Float64}(m)
 
     if show_trace
-        show(io, trace)
+        show(trace)
     end
 
     return_code = ccall(
@@ -468,8 +468,8 @@ const _lmder_messages = Dict{Int, String}(
 )
 
 function lmder(f!::Function, g!::Function, x0::Vector{Float64}, m::Int,
-               tol::Float64, show_trace::Bool, tracing::Bool, maxit::Int,
-               io::IO; _n::Int=length(x0),
+               tol::Float64, show_trace::Bool, tracing::Bool, maxit::Int;
+               _n::Int=length(x0),
                gtol::Float64=0.0, ftol::Float64=tol, xtol::Float64=tol,
                epsfcn::Float64=0.0, mode::Int=1, nprint::Int=0,
                maxfev::Int=(_n+1)*200, factor::Float64=100.0,
@@ -487,7 +487,7 @@ function lmder(f!::Function, g!::Function, x0::Vector{Float64}, m::Int,
     wa = Array{Float64}(lwa)
     _lmder_func_ref[] = f!
     _lmder_jac_func_ref[] = g!
-    trace = AlgoTrace(x0, show_trace, tracing, maxit, io)
+    trace = AlgoTrace(x0, show_trace, tracing, maxit)
 
     diag = Array{Float64}(n)
     nfev = [0]
@@ -501,7 +501,7 @@ function lmder(f!::Function, g!::Function, x0::Vector{Float64}, m::Int,
     wa4 = Array{Float64}(m)
 
     if show_trace
-        show(io, trace)
+        show(trace)
     end
 
     return_code = ccall(

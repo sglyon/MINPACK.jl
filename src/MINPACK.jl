@@ -33,16 +33,15 @@ type AlgoTrace
     start_time::Float64
     last_feval_time::Float64
     tot_time::Float64
-    io::IO
 
     function AlgoTrace(x_init::Vector{Float64}, verbose::Bool=false, tracing::Bool=false,
-                       maxit::Int=typemax(Int), io::IO=STDOUT)
+                       maxit::Int=typemax(Int))
         if verbose
             tracing = true
         end
         x_old = tracing ? copy(x_init) : Array{Float64}(0)
         states = Array{IterationState}(0)
-        new(0, 0, verbose, tracing, maxit, x_old, states, 1, time(), time(), NaN, io)
+        new(0, 0, verbose, tracing, maxit, x_old, states, 1, time(), time(), NaN)
     end
 end
 
@@ -72,7 +71,7 @@ function Base.push!(trace::AlgoTrace, x::Vector{Float64}, fvec::Vector{Float64},
             elapsed = now - trace.last_feval_time
             trace.last_feval_time = now
             ss = IterationState(trace.f_calls, f_norm, x_step, elapsed)
-            trace.show_trace && show(trace.io, ss)
+            trace.show_trace && show(ss)
             push!(trace.trace, ss)
             copy!(trace.x_old, x)
         end
@@ -107,15 +106,15 @@ end
 
 function fsolve(f!::Function, x0::Vector{Float64}, m::Int=length(x0); tol::Float64=1e-8,
                 show_trace::Bool=false, tracing::Bool=false, method::Symbol=:hybr,
-                iterations::Int=typemax(Int), io::IO=STDOUT, kwargs...)
+                iterations::Int=typemax(Int), kwargs...)
     if method == :hybr
-        return hybrd1(f!, x0, tol, show_trace, tracing, iterations, io)
+        return hybrd1(f!, x0, tol, show_trace, tracing, iterations)
     elseif method == :lm
-        return lmdif1(f!, x0, m, tol, show_trace, tracing, iterations, io)
+        return lmdif1(f!, x0, m, tol, show_trace, tracing, iterations)
     elseif method == :lmdif
-        return lmdif(f!, x0, m, tol, show_trace, tracing, iterations, io; kwargs...)
+        return lmdif(f!, x0, m, tol, show_trace, tracing, iterations; kwargs...)
     elseif method == :hybrd
-        return hybrd(f!, x0, tol, show_trace, tracing, iterations, io; kwargs...)
+        return hybrd(f!, x0, tol, show_trace, tracing, iterations; kwargs...)
     else
         error("unknown method $(method)")
     end
@@ -123,12 +122,12 @@ end
 
 function fsolve(f!::Function, g!::Function, x0::Vector{Float64}, m::Int=length(x0);
                 tol::Float64=1e-8, show_trace::Bool=false, tracing::Bool=false,
-                method::Symbol=:hybr, iterations::Int=typemax(Int), io::IO=STDOUT,
+                method::Symbol=:hybr, iterations::Int=typemax(Int),
                 kwargs...)
     if method == :hybr
-        return hybrj(f!, g!, x0, tol, show_trace, tracing, iterations, io; kwargs...)
+        return hybrj(f!, g!, x0, tol, show_trace, tracing, iterations; kwargs...)
     elseif method == :lm
-        return lmder(f!, g!, x0, m, tol, show_trace, tracing, iterations, io; kwargs...)
+        return lmder(f!, g!, x0, m, tol, show_trace, tracing, iterations; kwargs...)
     else
         error("unknown method $(method)")
     end
