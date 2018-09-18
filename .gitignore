@@ -5,3 +5,4 @@ deps/cminpack-master
 *.dylib
 *.so
 *.zip
+deps/build.log

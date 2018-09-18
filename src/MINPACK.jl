@@ -1,16 +1,17 @@
 module MINPACK
 
 using Distances
+using Printf, LinearAlgebra
 
 export fsolve
 
-const _dl_ext = @static is_apple() ? "dylib" : (is_windows() ? "dll" : "so")
+const _dl_ext = @static Sys.isapple() ? "dylib" : (Sys.iswindows() ? "dll" : "so")
 
 const cminpack = joinpath(
     dirname(dirname(@__FILE__)), "deps", "libcminpack.$(_dl_ext)"
 )
 
-immutable IterationState
+struct IterationState
     iteration::Int
     fnorm::Float64
     xnorm::Float64
@@ -21,7 +22,7 @@ function Base.show(io::IO, t::IterationState)
     @printf io "%6d   %14e   %14e   %14f\n" t.iteration t.fnorm t.xnorm t.step_time
 end
 
-type AlgoTrace
+mutable struct AlgoTrace
     f_calls::Int
     g_calls::Int
     show_trace::Bool
@@ -39,13 +40,13 @@ type AlgoTrace
         if verbose
             tracing = true
         end
-        x_old = tracing ? copy(x_init) : Array{Float64}(0)
-        states = Array{IterationState}(0)
+        x_old = tracing ? copy(x_init) : Array{Float64}(undef, 0)
+        states = Array{IterationState}(undef,0)
         new(0, 0, verbose, tracing, maxit, x_old, states, 1, time(), time(), NaN)
     end
 end
 
-Base.unsafe_convert(::Type{Ptr{Void}}, o::AlgoTrace) = o
+Base.unsafe_convert(::Type{Ptr{Cvoid}}, o::AlgoTrace) = o
 
 function Base.show(io::IO, trace::AlgoTrace)
     @printf io "Iter     f(x) inf-norm    Step 2-norm      Step time\n"
@@ -73,13 +74,13 @@ function Base.push!(trace::AlgoTrace, x::Vector{Float64}, fvec::Vector{Float64},
             ss = IterationState(trace.f_calls, f_norm, x_step, elapsed)
             trace.show_trace && show(ss)
             push!(trace.trace, ss)
-            copy!(trace.x_old, x)
+            copyto!(trace.x_old, x)
         end
         trace.prev_iflag = iflag
     end
 end
 
-immutable SolverResults
+struct SolverResults
     algo::String
     initial_x::Vector{Float64}
     x::Vector{Float64}
