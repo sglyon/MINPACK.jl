@@ -80,6 +80,22 @@ function Base.push!(trace::AlgoTrace, x::Vector{Float64}, fvec::Vector{Float64},
     end
 end
 
+"""
+    SolverResults
+
+Holds results of attempting to solve system of equations.
+
+Fields should be accessed directly and are:
+
+- `algo::String`: the name of the lagorithm used
+- `initial_x::Vector{Float64}`: the starting point
+- `x::Vector{Float64}`: The final value of `x`. When converged evaluating the objective at `x` should give zeros
+- `f::Vector{Float64}`: The function value at `x`
+- `return_code::Int`: The return code from MINPACK
+- `converged::Bool`: Whether or not the algorithm converged
+- `msg::String`: The message from MINPACK describing outcome
+- `trace::AlgoTrace`: If tracing was enabled, a detailed trace of all iterations
+"""
 struct SolverResults
     algo::String
     initial_x::Vector{Float64}
