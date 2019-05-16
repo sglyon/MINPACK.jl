@@ -1,0 +1,20 @@
+name = "MINPACK"
+uuid = "4854310b-de5a-5eb6-a2a5-c1dee2bd17f9"
+authors = ["Spencer Lyon <spencerlyon2@gmail.com>"]
+version = "1.1.1"
+
+[deps]
+Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[compat]
+julia = "≥ 0.7.0"
+
+[extras]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["LinearAlgebra", "Test", "Printf"]
