@@ -40,7 +40,7 @@ function hybrd(f!::Function, x0::Vector{Float64}, tol::Float64,
 
     function _hybrd_func_wrapper(_p::Ptr{Cvoid}, n::Cint, _x::Ptr{Cdouble},
                                  _fvec::Ptr{Cdouble}, iflag::Cint)
-        fvec = unsafe_wrap(Array, _fvec, n)
+        local fvec = unsafe_wrap(Array, _fvec, n)
         local x = unsafe_wrap(Array, _x, n)
         if iflag < 0
             print(fvec)
@@ -48,7 +48,7 @@ function hybrd(f!::Function, x0::Vector{Float64}, tol::Float64,
         end
         f!(fvec, x)
 
-        trace = unsafe_pointer_to_objref(_p)::AlgoTrace
+        local trace = unsafe_pointer_to_objref(_p)::AlgoTrace
         push!(trace, x, fvec, iflag)
 
         trace.f_calls > trace.maxit ? Cint(-1) : Cint(0)
@@ -129,7 +129,7 @@ function hybrj(f!::Function, g!::Function, x0::Vector{Float64}, xtol::Float64,
     function _hybrj_func_wrapper(_p::Ptr{Cvoid}, n::Cint, _x::Ptr{Cdouble},
                                  _fvec::Ptr{Cdouble}, _fjac::Ptr{Cdouble},
                                  ldfjac::Cint, iflag::Cint)
-        fvec = unsafe_wrap(Array, _fvec, n)
+        local fvec = unsafe_wrap(Array, _fvec, n)
         fjac_flat = unsafe_wrap(Array, _fjac, ldfjac*n)
         fjac = reshape(fjac_flat, Int(ldfjac), Int(n))
         local x = unsafe_wrap(Array, _x, n)
@@ -144,7 +144,7 @@ function hybrj(f!::Function, g!::Function, x0::Vector{Float64}, xtol::Float64,
             g!(fjac, x)
         end
 
-        trace = unsafe_pointer_to_objref(_p)::AlgoTrace
+        local trace = unsafe_pointer_to_objref(_p)::AlgoTrace
         push!(trace, x, fvec, iflag)
 
         trace.f_calls > trace.maxit ? Cint(-1) : Cint(0)
@@ -206,7 +206,7 @@ function hybrd1(f!::Function, x0::Vector{Float64}, tol::Float64,
 
     function _hybrd1_func_wrapper(_p::Ptr{Cvoid}, n::Cint, _x::Ptr{Cdouble},
                                  _fvec::Ptr{Cdouble}, iflag::Cint)
-        fvec = unsafe_wrap(Array, _fvec, n)
+        local fvec = unsafe_wrap(Array, _fvec, n)
         local x = unsafe_wrap(Array, _x, n)
         if iflag < 0
             print(fvec)
@@ -214,7 +214,7 @@ function hybrd1(f!::Function, x0::Vector{Float64}, tol::Float64,
         end
         f!(fvec, x)
 
-        trace = unsafe_pointer_to_objref(_p)::AlgoTrace
+        local trace = unsafe_pointer_to_objref(_p)::AlgoTrace
         push!(trace, x, fvec, iflag)
 
         trace.f_calls > trace.maxit ? Cint(-1) : Cint(0)
@@ -287,7 +287,7 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
 
     function _lmdif1_func_wrapper(_p::Ptr{Cvoid}, m::Cint, n::Cint, _x::Ptr{Cdouble},
                                  _fvec::Ptr{Cdouble}, iflag::Cint)
-        fvec = unsafe_wrap(Array, _fvec, m)
+        local fvec = unsafe_wrap(Array, _fvec, m)
         local x = unsafe_wrap(Array, _x, n)
         if iflag < 0
             print(fvec)
@@ -295,7 +295,7 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
         end
         f!(fvec, x)
 
-        trace = unsafe_pointer_to_objref(_p)::AlgoTrace
+        local trace = unsafe_pointer_to_objref(_p)::AlgoTrace
         push!(trace, x, fvec, iflag)
         trace.f_calls > trace.maxit ? Cint(-1) : Cint(0)
     end
@@ -379,7 +379,7 @@ function lmdif(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
 
     function _lmdif_func_wrapper(_p::Ptr{Cvoid}, m::Cint, n::Cint, _x::Ptr{Cdouble},
                                  _fvec::Ptr{Cdouble}, iflag::Cint)
-        fvec = unsafe_wrap(Array, _fvec, m)
+        local fvec = unsafe_wrap(Array, _fvec, m)
         local x = unsafe_wrap(Array, _x, n)
         if iflag < 0
             print(fvec)
@@ -387,7 +387,7 @@ function lmdif(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
         end
         f!(fvec, x)
 
-        trace = unsafe_pointer_to_objref(_p)::AlgoTrace
+        local trace = unsafe_pointer_to_objref(_p)::AlgoTrace
         push!(trace, x, fvec, iflag)
         trace.f_calls > trace.maxit ? Cint(-1) : Cint(0)
     end
@@ -484,7 +484,7 @@ function lmder(f!::Function, g!::Function, x0::Vector{Float64}, m::Int,
                                  _x::Ptr{Cdouble}, _fvec::Ptr{Cdouble},
                                  _fjac::Ptr{Cdouble}, ldfjac::Cint,
                                  iflag::Cint)
-        fvec = unsafe_wrap(Array, _fvec, m)
+        local fvec = unsafe_wrap(Array, _fvec, m)
         fjac_flat = unsafe_wrap(Array, _fjac, ldfjac*n)
         fjac = reshape(fjac_flat, Int(ldfjac), Int(n))
         local x = unsafe_wrap(Array, _x, n)
@@ -499,7 +499,7 @@ function lmder(f!::Function, g!::Function, x0::Vector{Float64}, m::Int,
             g!(fjac, x)
         end
 
-        trace = unsafe_pointer_to_objref(_p)::AlgoTrace
+        local trace = unsafe_pointer_to_objref(_p)::AlgoTrace
         push!(trace, x, fvec, iflag)
 
         trace.f_calls > trace.maxit ? Cint(-1) : Cint(0)
@@ -556,7 +556,7 @@ function fdjac1(f!::Function, x0::Vector{Float64};
 
     function _fdjac1_func_wrapper(_p::Ptr{Cvoid}, n::Cint, _x::Ptr{Cdouble},
                                   _fvec::Ptr{Cdouble}, iflag::Cint)
-        fvec = unsafe_wrap(Array, _fvec, n)
+        local fvec = unsafe_wrap(Array, _fvec, n)
         local x = unsafe_wrap(Array, _x, n)
         f!(fvec, x)
 
