@@ -1,6 +1,5 @@
 module MINPACK
 
-using Distances
 using Printf, LinearAlgebra
 
 export fsolve
@@ -11,6 +10,18 @@ const cminpack = joinpath(
     dirname(dirname(@__FILE__)), "deps", "libcminpack.$(_dl_ext)"
 )
 
+# This is an implementation of the sqeuclidean function from Distances.jl
+# Made non-generic as it assumes MINPACK only supports Arrays
+# Removes the need for a generic downstream dependency.
+function _sqeuclidean(a::Array,b::Array)
+    length(a) !== length(b) &&
+        throw(DimensionMismatch("first array has lenght $(length(a)) which does not match the length of the second, $(length(b))"))
+    c = zero(promote_type(eltype(a),eltype(b)))
+    for i in eachindex(a,b)
+        c += abs2(a[i] - b[i])
+    end
+    c
+end
 struct IterationState
     iteration::Int
     fnorm::Float64
@@ -66,7 +77,7 @@ function Base.push!(trace::AlgoTrace, x::Vector{Float64}, fvec::Vector{Float64},
             end
         elseif iflag == 1  # computing function
             trace.f_calls += 1
-            x_step = sqeuclidean(trace.x_old, x)
+            x_step = _sqeuclidean(trace.x_old, x)
             f_norm = maximum(abs, fvec)
             now = time()
             elapsed = now - trace.last_feval_time
