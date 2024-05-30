@@ -1,14 +1,9 @@
 module MINPACK
 
 using Printf, LinearAlgebra
+using cminpack_jll
 
 export fsolve
-
-const _dl_ext = @static Sys.isapple() ? "dylib" : (Sys.iswindows() ? "dll" : "so")
-
-const cminpack = joinpath(
-    dirname(dirname(@__FILE__)), "deps", "libcminpack.$(_dl_ext)"
-)
 
 # This is an implementation of the sqeuclidean function from Distances.jl
 # Made non-generic as it assumes MINPACK only supports Arrays

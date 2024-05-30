@@ -59,19 +59,32 @@ function hybrd(f!::Function, x0::Vector{Float64}, tol::Float64,
         (Ptr{Cvoid}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint)
     )
 
-    return_code = ccall(
-        (:hybrd, cminpack),
-        Cint,
-        (
-            Ptr{Cvoid}, Ptr{Cvoid}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble,
-            Cint, Cint, Cint, Cdouble, Ptr{Cdouble}, Cint, Cdouble, Cint,
-            Ptr{Cint}, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Cint, Ptr{Cdouble},
-            Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}
-        ),
-        _hybrd_cfunc, pointer_from_objref(trace), n, x, fvec, tol, typemax(Cint),
-        ml, mu, epsfcn, diag, mode, factor, nprint, [0], fjac, n, r, lr, qtf,
-        wa1, wa2, wa3, wa4
-    )
+    return_code = @ccall libcminpack.hybrd(
+        _hybrd_cfunc::Ptr{Cvoid},
+        pointer_from_objref(trace)::Ptr{Cvoid},
+        n::Cint,
+        x::Ptr{Cdouble},
+        fvec::Ptr{Cdouble},
+        tol::Cdouble,
+        typemax(Cint)::Cint,
+        ml::Cint,
+        mu::Cint,
+        epsfcn::Cdouble,
+        diag::Ptr{Cdouble},
+        mode::Cint,
+        factor::Cdouble,
+        nprint::Cint,
+        [0]::Ptr{Cint},
+        fjac::Ptr{Cdouble},
+        n::Cint,
+        r::Ptr{Cdouble},
+        lr::Cint,
+        qtf::Ptr{Cdouble},
+        wa1::Ptr{Cdouble},
+        wa2::Ptr{Cdouble},
+        wa3::Ptr{Cdouble},
+        wa4::Ptr{Cdouble},
+    )::Cint
 
     msg = _hybrd_messages[max(-2, return_code)]
     if return_code < -1
@@ -155,22 +168,30 @@ function hybrj(f!::Function, g!::Function, x0::Vector{Float64}, xtol::Float64,
         (Ptr{Cvoid}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Cint, Cint)
     )
 
-    return_code = ccall(
-        (:hybrj, cminpack),
-        Cint,
-        (
-            Ptr{Cvoid}, Ptr{Cvoid}, Cint,
-            Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Cint, Cdouble, Cint,
-            Ptr{Cdouble}, Cint, Cdouble, Cint, Ptr{Cint}, Ptr{Cint},
-            Ptr{Cdouble}, Cint,
-            Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}
-        ),
-        _hybrj_cfunc, pointer_from_objref(trace), n,
-        x, fvec, fjac, ldfjac, xtol, Cint(maxfev),
-        diag, mode, factor, nprint, [0], [0],
-        r, lr,
-        qtf, wa1, wa2, wa3, wa4
-    )
+    return_code = @ccall libcminpack.hybrj(
+        _hybrj_cfunc::Ptr{Cvoid},
+        pointer_from_objref(trace)::Ptr{Cvoid},
+        n::Cint,
+        x::Ptr{Cdouble},
+        fvec::Ptr{Cdouble},
+        fjac::Ptr{Cdouble},
+        ldfjac::Cint,
+        xtol::Cdouble,
+        Cint(maxfev)::Cint,
+        diag::Ptr{Cdouble},
+        mode::Cint,
+        factor::Cdouble,
+        nprint::Cint,
+        [0]::Ptr{Cint},
+        [0]::Ptr{Cint},
+        r::Ptr{Cdouble},
+        lr::Cint,
+        qtf::Ptr{Cdouble},
+        wa1::Ptr{Cdouble},
+        wa2::Ptr{Cdouble},
+        wa3::Ptr{Cdouble},
+        wa4::Ptr{Cdouble},
+    )::Cint
 
     msg = _hybrj_messages[max(-2, return_code)]
     if return_code < -1
@@ -229,12 +250,16 @@ function hybrd1(f!::Function, x0::Vector{Float64}, tol::Float64,
     if show_trace
         show(trace)
     end
-    return_code = ccall(
-        (:hybrd1, cminpack),
-        Cint,
-        (Ptr{Cvoid}, Ptr{Cvoid}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble, Ptr{Cdouble}, Cint),
-        _hybrd1_cfunc, pointer_from_objref(trace), n, x, fvec, tol, wa, lwa
-    )
+    return_code = @ccall libcminpack.hybrd1(
+        _hybrd1_cfunc::Ptr{Cvoid},
+        pointer_from_objref(trace)::Ptr{Cvoid},
+        n::Cint,
+        x::Ptr{Cdouble},
+        fvec::Ptr{Cdouble},
+        tol::Cdouble,
+        wa::Ptr{Cdouble},
+        lwa::Cint,
+    )::Cint
 
     msg = _hybr_messages[max(-2, return_code)]
     if return_code < -1
@@ -305,12 +330,18 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
         (Ptr{Cvoid}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint)
     )
 
-    return_code = ccall(
-        (:lmdif1, cminpack),
-        Cint,
-        (Ptr{Cvoid}, Ptr{Cvoid}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble, Ptr{Cint}, Ptr{Cdouble}, Cint),
-        _lmdif1_cfunc, pointer_from_objref(trace), m, n, x, fvec, tol, iwa, wa, lwa
-    )
+    return_code = @ccall libcminpack.lmdif1(
+        _lmdif1_cfunc::Ptr{Cvoid},
+        pointer_from_objref(trace)::Ptr{Cvoid},
+        m::Cint,
+        n::Cint,
+        x::Ptr{Cdouble},
+        fvec::Ptr{Cdouble},
+        tol::Cdouble,
+        iwa::Ptr{Cint},
+        wa::Ptr{Cdouble},
+        lwa::Cint,
+    )::Cint
 
     msg = _lmdif1_messages[max(-2, return_code)]
     if return_code < -1
@@ -397,21 +428,32 @@ function lmdif(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
         (Ptr{Cvoid}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint)
     )
 
-    return_code = ccall(
-        (:lmdif, cminpack),
-        Cint,
-        # func         p        m     n        x             fvec       ftol
-        (Ptr{Cvoid}, Ptr{Cvoid}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble,
-        # xtol     gtol   maxfev  epsfcn    diag        mode   factor
-        Cdouble, Cdouble, Cint, Cdouble, Ptr{Cdouble}, Cint, Cdouble,
-        # nprint nfev       fjac       ldfjac   ipvt     qtf
-        Cint, Ptr{Cint}, Ptr{Cdouble}, Cint, Ptr{Cint}, Ptr{Cdouble},
-        # wa1           wa2           wa3            wa4
-        Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}),
-        _lmdif_cfunc, pointer_from_objref(trace), m, n, x, fvec, ftol, xtol,
-        gtol, maxfev, epsfcn, diag, mode, factor, nprint, nfev, fjac, ldfjac,
-        ipvt, qtf, wa1, wa2, wa3, wa4
-    )
+    return_code = @ccall libcminpack.lmdif(
+        _lmdif_cfunc::Ptr{Cvoid},
+        pointer_from_objref(trace)::Ptr{Cvoid},
+        m::Cint,
+        n::Cint,
+        x::Ptr{Cdouble},
+        fvec::Ptr{Cdouble},
+        ftol::Cdouble,
+        xtol::Cdouble,
+        gtol::Cdouble,
+        maxfev::Cint,
+        epsfcn::Cdouble,
+        diag::Ptr{Cdouble},
+        mode::Cint,
+        factor::Cdouble,
+        nprint::Cint,
+        nfev::Ptr{Cint},
+        fjac::Ptr{Cdouble},
+        ldfjac::Cint,
+        ipvt::Ptr{Cint},
+        qtf::Ptr{Cdouble},
+        wa1::Ptr{Cdouble},
+        wa2::Ptr{Cdouble},
+        wa3::Ptr{Cdouble},
+        wa4::Ptr{Cdouble},
+    )::Cint
 
     msg = _lmdif_messages[max(-2, return_code)]
     if return_code < -1
@@ -511,22 +553,32 @@ function lmder(f!::Function, g!::Function, x0::Vector{Float64}, m::Int,
         (Ptr{Cvoid}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Cint, Cint)
     )
 
-    return_code = ccall(
-        (:lmder, cminpack),
-        Cint,
-        # func         p        m     n        x             fvec       fjac
-        (Ptr{Cvoid}, Ptr{Cvoid}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble},
-        # ldfjac  ftol  xtol     gtol   maxfev   diag        mode   factor
-        Cint, Cdouble, Cdouble, Cdouble, Cint, Ptr{Cdouble}, Cint, Cdouble,
-        # nprint  nfev    njev        ipvt        qtf         wa1
-        Cint, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cdouble}, Ptr{Cdouble},
-        # wa2            wa3          wa4
-        Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}),
-
-        _lmder_cfunc, pointer_from_objref(trace), m, n, x, fvec, fjac,
-        ldfjac, ftol, xtol, gtol, maxfev, diag, mode, factor, nprint, nfev,
-        njev, ipvt, qtf, wa1, wa2, wa3, wa4
-    )
+    return_code = @ccall libcminpack.lmder(
+        _lmder_cfunc::Ptr{Cvoid},
+        pointer_from_objref(trace)::Ptr{Cvoid},
+        m::Cint,
+        n::Cint,
+        x::Ptr{Cdouble},
+        fvec::Ptr{Cdouble},
+        fjac::Ptr{Cdouble},
+        ldfjac::Cint,
+        ftol::Cdouble,
+        xtol::Cdouble,
+        gtol::Cdouble,
+        maxfev::Cint,
+        diag::Ptr{Cdouble},
+        mode::Cint,
+        factor::Cdouble,
+        nprint::Cint,
+        nfev::Ptr{Cint},
+        njev::Ptr{Cint},
+        ipvt::Ptr{Cint},
+        qtf::Ptr{Cdouble},
+        wa1::Ptr{Cdouble},
+        wa2::Ptr{Cdouble},
+        wa3::Ptr{Cdouble},
+        wa4::Ptr{Cdouble},
+    )::Cint
 
     msg = _lmder_messages[max(-2, return_code)]
     if return_code < -1
@@ -569,17 +621,20 @@ function fdjac1(f!::Function, x0::Vector{Float64};
         (Ptr{Cvoid}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cint)
     )
 
-    return_code = ccall(
-        (:fdjac1, cminpack),
-        Cint,
-        (
-            Ptr{Cvoid}, Ptr{Cvoid}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble},
-            Cint, Cint, Cint, Cdouble, Ptr{Cdouble}, Ptr{Cdouble}
-
-        ),
-        _fdjac1_cfunc, pointer_from_objref(nothing), n, x, fvec, fjac,
-        ldjfac, ml, mu, epsfcn, wa1, wa2
-    )
+    return_code = @ccall libcminpack.:fdjac1(
+        _fdjac1_cfunc::Ptr{Cvoid},
+        pointer_from_objref(nothing)::Ptr{Cvoid},
+        n::Cint,
+        x::Ptr{Cdouble},
+        fvec::Ptr{Cdouble},
+        fjac::Ptr{Cdouble},
+        ldjfac::Cint,
+        ml::Cint,
+        mu::Cint,
+        epsfcn::Cdouble,
+        wa1::Ptr{Cdouble},
+        wa2::Ptr{Cdouble},
+    )::Cint
 
     return fjac
 end
