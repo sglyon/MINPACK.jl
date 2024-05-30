@@ -60,7 +60,7 @@ function hybrd(f!::Function, x0::Vector{Float64}, tol::Float64,
     )
 
     return_code = ccall(
-        (:hybrd, cminpack),
+        (:hybrd, libcminpack),
         Cint,
         (
             Ptr{Cvoid}, Ptr{Cvoid}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble,
@@ -156,7 +156,7 @@ function hybrj(f!::Function, g!::Function, x0::Vector{Float64}, xtol::Float64,
     )
 
     return_code = ccall(
-        (:hybrj, cminpack),
+        (:hybrj, libcminpack),
         Cint,
         (
             Ptr{Cvoid}, Ptr{Cvoid}, Cint,
@@ -230,7 +230,7 @@ function hybrd1(f!::Function, x0::Vector{Float64}, tol::Float64,
         show(trace)
     end
     return_code = ccall(
-        (:hybrd1, cminpack),
+        (:hybrd1, libcminpack),
         Cint,
         (Ptr{Cvoid}, Ptr{Cvoid}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble, Ptr{Cdouble}, Cint),
         _hybrd1_cfunc, pointer_from_objref(trace), n, x, fvec, tol, wa, lwa
@@ -306,7 +306,7 @@ function lmdif1(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
     )
 
     return_code = ccall(
-        (:lmdif1, cminpack),
+        (:lmdif1, libcminpack),
         Cint,
         (Ptr{Cvoid}, Ptr{Cvoid}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble, Ptr{Cint}, Ptr{Cdouble}, Cint),
         _lmdif1_cfunc, pointer_from_objref(trace), m, n, x, fvec, tol, iwa, wa, lwa
@@ -398,7 +398,7 @@ function lmdif(f!::Function, x0::Vector{Float64}, m::Int, tol::Float64,
     )
 
     return_code = ccall(
-        (:lmdif, cminpack),
+        (:lmdif, libcminpack),
         Cint,
         # func         p        m     n        x             fvec       ftol
         (Ptr{Cvoid}, Ptr{Cvoid}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Cdouble,
@@ -512,7 +512,7 @@ function lmder(f!::Function, g!::Function, x0::Vector{Float64}, m::Int,
     )
 
     return_code = ccall(
-        (:lmder, cminpack),
+        (:lmder, libcminpack),
         Cint,
         # func         p        m     n        x             fvec       fjac
         (Ptr{Cvoid}, Ptr{Cvoid}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble},
@@ -570,7 +570,7 @@ function fdjac1(f!::Function, x0::Vector{Float64};
     )
 
     return_code = ccall(
-        (:fdjac1, cminpack),
+        (:fdjac1, libcminpack),
         Cint,
         (
             Ptr{Cvoid}, Ptr{Cvoid}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble},
